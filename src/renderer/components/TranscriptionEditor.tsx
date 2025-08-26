@@ -19,10 +19,25 @@ const TranscriptionEditor: React.FC<TranscriptionEditorProps> = ({
   const [historyIndex, setHistoryIndex] = useState<number>(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Update editor when text prop changes
+  // Process paragraph markers and update editor when text prop changes
   useEffect(() => {
-    setEditedText(text);
-    setHistory([text]);
+    // Make sure we have text to process
+    if (!text) {
+      setEditedText('');
+      setHistory(['']);
+      setHistoryIndex(0);
+      return;
+    }
+    
+    // Strip any GiNZA formatting header to avoid confusion with filenames
+    let processedText = text.replace(/【GiNZA整形済】/g, '');
+    
+    // Replace GiNZA paragraph markers with actual line breaks
+    processedText = processedText.replace(/◆◆◆/g, '\n\n');
+    
+    // Update the editor state
+    setEditedText(processedText);
+    setHistory([processedText]);
     setHistoryIndex(0);
   }, [text]);
 
@@ -30,7 +45,10 @@ const TranscriptionEditor: React.FC<TranscriptionEditorProps> = ({
   useEffect(() => {
     const timer = setTimeout(() => {
       if (editedText !== text) {
-        onChange(editedText);
+        // When saving changes, convert back to GiNZA-formatted text with paragraph markers
+        // This ensures consistent handling if we need to export or process the text
+        const updatedText = editedText.replace(/\n\n/g, '◆◆◆');
+        onChange(updatedText);
       }
     }, 1000);
 

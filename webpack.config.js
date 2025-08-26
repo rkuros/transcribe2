@@ -3,8 +3,8 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = {
   mode: process.env.NODE_ENV || 'development',
-  entry: './src/renderer/index.tsx',
-  target: 'electron-renderer',
+  entry: ['./src/renderer/polyfills.js', './src/renderer/index.tsx'],
+  target: 'web',
   devtool: 'source-map',
   module: {
     rules: [

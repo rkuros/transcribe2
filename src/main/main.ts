@@ -25,6 +25,16 @@ function createWindow() {
     }
   });
 
+  // Set Content Security Policy
+  mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': ["default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"]
+      }
+    });
+  });
+
   // Load the index.html of the app
   const startUrl = process.env.NODE_ENV === 'development' 
     ? 'http://localhost:8080' 
@@ -48,6 +58,8 @@ function createWindow() {
   mainWindow.on('closed', () => {
     // Dereference the window object
     mainWindow = null;
+    // ウィンドウが閉じられたときにセットアップフラグをリセット
+    isSetupComplete = false;
   });
 }
 
@@ -77,10 +89,12 @@ let settingsManager: SettingsManager;
 let audioProcessingManager: PythonAudioProcessingManager;
 let exportService: ExportService;
 let logger: Logger;
+let isSetupComplete = false;
 
 // Set up IPC handlers after window creation
 function setupIpcHandlers() {
   if (!mainWindow) return;
+  if (isSetupComplete) return; // 既にセットアップ済みの場合は何もしない
   
   // Initialize managers
   fileManager = new ElectronFileManager(mainWindow);
@@ -88,6 +102,9 @@ function setupIpcHandlers() {
   audioProcessingManager = new PythonAudioProcessingManager(mainWindow);
   exportService = new ExportService(mainWindow);
   logger = new Logger();
+  
+  // セットアップが完了したことをマーク
+  isSetupComplete = true;
   
   // Set up global error handlers
   process.on('uncaughtException', (error) => {
