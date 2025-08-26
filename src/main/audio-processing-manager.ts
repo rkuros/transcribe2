@@ -68,8 +68,8 @@ export class PythonAudioProcessingManager implements AudioProcessingManager, Pro
       // Step 3: Apply NLP formatting if auto-formatting is enabled
       if (options.enableAutoFormatting !== false) { // Default to true if not specified
         try {
-          // Apply GiNZA formatting if specifically enabled or if enableGinzaFormatting is not specified (backward compatibility)
-          const useGinza = options.enableGinzaFormatting !== false;
+          // Apply GiNZA formatting only if specifically enabled
+          const useGinza = options.enableGinzaFormatting === true;
           
           if (useGinza) {
             console.log('Using GiNZA for Japanese text formatting');
