@@ -91,9 +91,10 @@ def separate_audio(input_file, output_dir=None, fast_mode=True):
                 "--two-stems=vocals",
                 "-o", output_dir,
                 "--mp3",
-                "--no-liner",  # Skip linear evaluation for faster processing
                 "--shifts=0",   # Disable shifts for faster processing
                 "--overlap=0",  # Minimum overlap for faster processing
+                "--mp3-preset=7",  # Fastest encoding speed for MP3
+                "-j", "2",      # Use 2 jobs for parallel processing
                 input_file
             ]
             
@@ -110,9 +111,10 @@ def separate_audio(input_file, output_dir=None, fast_mode=True):
                 "--two-stems=vocals",
                 "-o", output_dir,
                 "--mp3",
-                "--no-liner",  # Skip linear evaluation for faster processing
                 "--shifts=0",   # Disable shifts for faster processing
                 "--overlap=0",  # Minimum overlap for faster processing
+                "--mp3-preset=7",  # Fastest encoding speed for MP3
+                "-j", "2",      # Use 2 jobs for parallel processing
                 input_file
             ]
     else:
@@ -123,9 +125,10 @@ def separate_audio(input_file, output_dir=None, fast_mode=True):
             "--two-stems=vocals",
             "-o", output_dir,
             "--mp3",
-            "--no-liner",  # Skip linear evaluation for faster processing
             "--shifts=0",   # Disable shifts for faster processing
             "--overlap=0",  # Minimum overlap for faster processing
+            "--mp3-preset=7",  # Fastest encoding speed for MP3
+            "-j", "2",      # Use 2 jobs for parallel processing
             input_file
         ]
         
