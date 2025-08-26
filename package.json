@@ -1,0 +1,63 @@
+{
+  "name": "transcribe2",
+  "version": "1.0.0",
+  "description": "Audio transcription app with Demucs and Whisper models",
+  "main": "dist/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "concurrently -k \"npm run dev:webpack\" \"npm run dev:electron\"",
+    "dev:webpack": "webpack serve --mode development",
+    "dev:electron": "wait-on http://localhost:8080 && cross-env NODE_ENV=development electron .",
+    "build": "webpack --mode production && tsc -p tsconfig.electron.json",
+    "build:dev": "webpack --mode development && tsc -p tsconfig.electron.json",
+    "package": "npm run build && electron-builder build --mac",
+    "package:dmg": "npm run build && electron-builder build --mac dmg",
+    "clean": "rimraf dist release",
+    "postinstall": "echo \"Run 'pip install -r src/python/requirements.txt' to install Python dependencies\"",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "audio",
+    "transcription",
+    "whisper",
+    "demucs",
+    "electron"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "type": "commonjs",
+  "devDependencies": {
+    "@babel/core": "^7.28.3",
+    "@babel/preset-env": "^7.28.3",
+    "@babel/preset-react": "^7.27.1",
+    "@babel/preset-typescript": "^7.27.1",
+    "@types/node": "^24.3.0",
+    "@types/react": "^19.1.11",
+    "@types/react-dom": "^19.1.7",
+    "autoprefixer": "^10.4.21",
+    "babel-loader": "^10.0.0",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.0.0",
+    "css-loader": "^7.1.2",
+    "electron": "^37.3.1",
+    "electron-builder": "^26.0.12",
+    "html-webpack-plugin": "^5.6.4",
+    "postcss": "^8.5.6",
+    "postcss-import": "^16.1.1",
+    "postcss-loader": "^8.1.1",
+    "style-loader": "^4.0.0",
+    "tailwindcss": "^3.4.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2",
+    "wait-on": "^8.0.4",
+    "webpack": "^5.101.3",
+    "webpack-cli": "^6.0.1",
+    "webpack-dev-server": "^5.2.2"
+  },
+  "dependencies": {
+    "electron-store": "^10.1.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-router-dom": "^7.8.2"
+  }
+}
