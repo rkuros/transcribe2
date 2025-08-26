@@ -99,8 +99,8 @@ export class PythonAudioProcessingManager implements AudioProcessingManager, Pro
         const timeoutMs = 3 * 60 * 1000;
         let timeoutId: NodeJS.Timeout | null = null;
         
-        // Spawn python process
-        const process = spawn(this.pythonPath, [scriptPath, filePath]);
+        // Spawn python process with fast mode enabled
+        const process = spawn(this.pythonPath, [scriptPath, filePath, "--fast"]);
         
         let stdout = '';
         let stderr = '';

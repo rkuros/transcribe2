@@ -25,7 +25,7 @@ def report_progress(progress, stage="separation", estimated_time_remaining=None)
     print(json.dumps({"progress": data}))
     print(flush=True)  # Ensure output is flushed with a newline
 
-def separate_audio(input_file, output_dir=None):
+def separate_audio(input_file, output_dir=None, fast_mode=True):
     """
     Separate audio using Demucs to extract vocals from music tracks
     
@@ -91,6 +91,9 @@ def separate_audio(input_file, output_dir=None):
                 "--two-stems=vocals",
                 "-o", output_dir,
                 "--mp3",
+                "--no-liner",  # Skip linear evaluation for faster processing
+                "--shifts=0",   # Disable shifts for faster processing
+                "--overlap=0",  # Minimum overlap for faster processing
                 input_file
             ]
             
@@ -107,6 +110,9 @@ def separate_audio(input_file, output_dir=None):
                 "--two-stems=vocals",
                 "-o", output_dir,
                 "--mp3",
+                "--no-liner",  # Skip linear evaluation for faster processing
+                "--shifts=0",   # Disable shifts for faster processing
+                "--overlap=0",  # Minimum overlap for faster processing
                 input_file
             ]
     else:
@@ -117,6 +123,9 @@ def separate_audio(input_file, output_dir=None):
             "--two-stems=vocals",
             "-o", output_dir,
             "--mp3",
+            "--no-liner",  # Skip linear evaluation for faster processing
+            "--shifts=0",   # Disable shifts for faster processing
+            "--overlap=0",  # Minimum overlap for faster processing
             input_file
         ]
         
@@ -197,8 +206,32 @@ def separate_audio(input_file, output_dir=None):
         if not os.path.isfile(vocals_file):
             raise FileNotFoundError(f"Could not locate separated vocals track in {output_dir}")
         
-        report_progress(100, "separation")
+        report_progress(95, "separation")
         print(f"Successfully separated vocals: {vocals_file}")
+        
+        # Clean up the no-vocals track if it exists to save disk space
+        no_vocals_file = os.path.join(separated_dir, "no_vocals.mp3")
+        if os.path.isfile(no_vocals_file):
+            try:
+                os.remove(no_vocals_file)
+                print(f"Removed unnecessary no_vocals file: {no_vocals_file}")
+            except Exception as e:
+                print(f"Failed to remove no_vocals file: {e}")
+                
+        # Clean up any other unnecessary files in the separated directory
+        try:
+            for root, _, files in os.walk(separated_dir):
+                for file in files:
+                    if file != os.path.basename(vocals_file) and not file.startswith("."):
+                        try:
+                            os.remove(os.path.join(root, file))
+                            print(f"Removed unnecessary file: {os.path.join(root, file)}")
+                        except Exception as e:
+                            print(f"Failed to remove file {file}: {e}")
+        except Exception as e:
+            print(f"Error cleaning up files: {e}")
+        
+        report_progress(100, "separation")
         return vocals_file
         
     except Exception as e:
@@ -210,11 +243,12 @@ def main():
     parser = argparse.ArgumentParser(description="Separate audio using Demucs")
     parser.add_argument("input", help="Input audio file")
     parser.add_argument("--output-dir", help="Output directory for separated tracks", default=None)
+    parser.add_argument("--fast", help="Use fast mode with optimized settings", action="store_true")
     
     args = parser.parse_args()
     
     try:
-        vocal_path = separate_audio(args.input, args.output_dir)
+        vocal_path = separate_audio(args.input, args.output_dir, args.fast)
         print(json.dumps({"success": True, "vocal_path": vocal_path}), flush=True)
     except Exception as e:
         print(json.dumps({"success": False, "error": str(e)}), flush=True)
