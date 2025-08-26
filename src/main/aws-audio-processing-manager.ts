@@ -345,16 +345,35 @@ export class AWSAudioProcessingManager {
         message: '文字起こし結果を取得中'
       });
       
-      // 結果を組み立てる
-      if (jobResult.Transcript) {
-        // 結果が直接利用可能な場合
-        const transcriptResult = {
-          results: {
-            transcripts: [{
-              transcript: `AWS Transcribeによる文字起こし結果（ジョブID: ${jobName}）`
-            }]
+      // S3から直接結果を取得
+      try {
+        // S3から結果を取得
+        const transcriptFileName = `${jobName}.json`;
+        console.log(`S3から文字起こし結果を取得中: ${transcriptFileName}`);
+        
+        if (!this.s3Client) {
+          throw new Error('S3クライアントが初期化されていません');
+        }
+        
+        // GetObjectを使用してS3からファイルを取得
+        const { GetObjectCommand } = await import('@aws-sdk/client-s3');
+        const response = await this.s3Client.send(new GetObjectCommand({
+          Bucket: this.bucketName,
+          Key: transcriptFileName
+        }));
+        
+        // レスポンスボディを読み込む
+        let responseBody = '';
+        if (response.Body) {
+          // @ts-ignore - TypeScriptが非同期イテレータを認識しない場合の対策
+          for await (const chunk of response.Body as any) {
+            responseBody += chunk.toString();
           }
-        };
+        }
+        
+        // JSONをパース
+        const transcriptResult = JSON.parse(responseBody);
+        console.log('文字起こし結果の取得に成功しました');
         
         this.reportProgress({
           stage: 'complete',
@@ -364,16 +383,17 @@ export class AWSAudioProcessingManager {
         
         // 結果を適切な形式に変換
         return this.convertAwsTranscriptToResult(transcriptResult, jobName);
-      } else {
-        // いくつかのAWSリージョンではジョブの結果を直接含まない場合がある
-        // 単純なデモ用の結果を返す
+      } catch (error) {
+        console.error('S3からの結果取得エラー:', error);
+        
+        // エラー発生時はデフォルトのデモ結果を返す
         const demoResult = {
           text: `AWS Transcribeによる文字起こし結果（ジョブID: ${jobName}）\n\n` +
-                `文字起こしが完了しましたが、リージョンの設定により結果テキストを直接取得できませんでした。\n` +
-                `これはAWSの制限によるもので、S3のアクセス権限を確認してください。`,
+                `文字起こしジョブは完了しましたが、S3からの結果取得中にエラーが発生しました。\n` +
+                `エラー: ${error instanceof Error ? error.message : String(error)}`,
           segments: [],
           processingTime: 0,
-          modelUsed: 'aws-transcribe-auto',
+          modelUsed: options.model,
           audioSeparationUsed: false,
           awsJobId: jobName
         };
@@ -439,75 +459,7 @@ export class AWSAudioProcessingManager {
     throw new Error(`タイムアウト: ${maxAttempts}回試行後も文字起こしジョブが完了しませんでした`);
   }
 
-  // 文字起こし結果を取得
-  private async fetchTranscriptResult(transcriptUri: string) {
-    return new Promise<any>((resolve, reject) => {
-      console.log(`文字起こし結果を取得中: ${transcriptUri}`);
-      
-      // URLからジョブ名を抽出
-      let jobName: string;
-      if (transcriptUri.startsWith('http')) {
-        // URLの場合は最後の部分から抽出
-        jobName = transcriptUri.split('/').pop()!.split('.')[0];
-      } else if (transcriptUri.startsWith('s3://')) {
-        // S3 URIの場合も同様
-        jobName = transcriptUri.split('/').pop()!.split('.')[0];
-      } else {
-        // そのままジョブ名として使用
-        jobName = transcriptUri;
-      }
-      
-      console.log(`ジョブ名から結果を取得: ${jobName}`);
-      
-      // Transcribe APIから直接結果を取得
-      if (!this.transcribeClient) {
-        return reject(new Error('Transcribeクライアントが初期化されていません'));
-      }
-      
-      const getTranscriptionJob = async () => {
-        try {
-          const { GetTranscriptionJobCommand } = await import('@aws-sdk/client-transcribe');
-          
-          const command = new GetTranscriptionJobCommand({
-            TranscriptionJobName: jobName
-          });
-          
-          const response = await this.transcribeClient!.send(command);
-          
-          if (response.TranscriptionJob && response.TranscriptionJob.Transcript) {
-            // 標準的な形式に変換
-            const result = {
-              results: {
-                transcripts: [{
-                  transcript: response.TranscriptionJob.Transcript.TranscriptFileUri ? 
-                    `[${jobName}の文字起こし結果]` : '文字起こし結果が取得できません'
-                }],
-                items: [] // 詳細な項目は必要に応じて追加
-              }
-            };
-            
-            return result;
-          } else {
-            throw new Error('文字起こし結果が含まれていません');
-          }
-        } catch (error) {
-          console.error('Transcribeジョブ取得エラー:', error);
-          throw error;
-        }
-      };
-      
-      // ジョブから直接結果を取得
-      getTranscriptionJob()
-        .then(result => {
-          console.log('結果の取得に成功しました');
-          resolve(result);
-        })
-        .catch(err => {
-          console.error('結果取得エラー:', err);
-          reject(new Error(`結果取得エラー: ${err instanceof Error ? err.message : String(err)}`));
-        });
-    });
-  }
+  // 注意: fetchTranscriptResult関数は直接S3から取得する実装に置き換わったため削除されました
 
   // AWS Transcribeの結果を標準形式に変換
   private convertAwsTranscriptToResult(awsResult: any, jobId: string) {
