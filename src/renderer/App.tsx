@@ -333,7 +333,7 @@ const AppContent: React.FC = () => {
             />
             <label htmlFor="model-small" className="ml-2">
               <span className="font-medium">faster-whisper small</span>
-              <p className="text-sm text-gray-600">高速処理、適度な精度</p>
+              <p className="text-sm text-gray-400">高速処理、適度な精度</p>
             </label>
           </div>
           
@@ -350,7 +350,7 @@ const AppContent: React.FC = () => {
             />
             <label htmlFor="model-medium" className="ml-2">
               <span className="font-medium">faster-whisper medium</span>
-              <p className="text-sm text-gray-600">より高い精度、適度な処理速度</p>
+              <p className="text-sm text-gray-400">より高い精度、適度な処理速度</p>
             </label>
           </div>
           
@@ -367,7 +367,7 @@ const AppContent: React.FC = () => {
             />
             <label htmlFor="model-large" className="ml-2">
               <span className="font-medium">OpenAI Whisper large-v3-turbo</span>
-              <p className="text-sm text-gray-600">最高精度、より遅い処理速度</p>
+              <p className="text-sm text-gray-400">最高精度、より遅い処理速度</p>
             </label>
           </div>
           
@@ -385,7 +385,7 @@ const AppContent: React.FC = () => {
             />
             <label htmlFor="model-aws-auto" className="ml-2">
               <span className="font-medium">AWS Transcribe 一般</span>
-              <p className="text-sm text-gray-600">クラウド処理、高精度、自動言語検出</p>
+              <p className="text-sm text-gray-400">クラウド処理、高精度、自動言語検出</p>
             </label>
           </div>
           
@@ -402,20 +402,20 @@ const AppContent: React.FC = () => {
             />
             <label htmlFor="model-aws-medical" className="ml-2">
               <span className="font-medium">AWS Transcribe Medical</span>
-              <p className="text-sm text-gray-600">医療用語に特化、高精度</p>
+              <p className="text-sm text-gray-400">医療用語に特化、高精度</p>
             </label>
           </div>
           
           {/* AWS特有の設定 - モデルがAWS関連の場合のみ表示 */}
           {selectedModel.startsWith('aws-transcribe') && (
-            <div className="mt-4 p-3 bg-gray-100 rounded-lg">
-              <h4 className="font-medium mb-2">AWS設定</h4>
+            <div className="mt-4 p-3 bg-gray-700 rounded-lg">
+              <h4 className="font-medium mb-2 text-gray-100">AWS設定</h4>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="aws-region" className="block text-sm font-medium text-gray-700 mb-1">AWS リージョン</label>
+                  <label htmlFor="aws-region" className="block text-sm font-medium text-gray-200 mb-1">AWS リージョン</label>
                   <select
                     id="aws-region"
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm py-1"
+                    className="block w-full rounded-md border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm py-1 bg-gray-800 text-gray-100"
                     value={awsRegion}
                     onChange={(e) => setAwsRegion(e.target.value)}
                   >
@@ -443,7 +443,7 @@ const AppContent: React.FC = () => {
             />
             <label htmlFor="enable-separation" className="ml-2">
               <span className="font-medium">Demucsで音声分離を有効化</span>
-              <p className="text-sm text-gray-600">ボーカルを分離してより高品質な文字起こしを実現</p>
+              <p className="text-sm text-gray-400">ボーカルを分離してより高品質な文字起こしを実現</p>
             </label>
           </div>
           
@@ -458,7 +458,7 @@ const AppContent: React.FC = () => {
             />
             <label htmlFor="enable-ginza" className="ml-2">
               <span className="font-medium">GiNZAで日本語テキスト整形を有効化</span>
-              <p className="text-sm text-gray-600">自然な段落分けと読みやすさを向上（日本語のみ）</p>
+              <p className="text-sm text-gray-400">自然な段落分けと読みやすさを向上（日本語のみ）</p>
             </label>
           </div>
         </div>
