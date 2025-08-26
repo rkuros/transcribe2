@@ -73,12 +73,13 @@ export class PythonAudioProcessingManager implements AudioProcessingManager, Pro
           
           if (useGinza) {
             console.log('Using GiNZA for Japanese text formatting');
-            const formattedText = await this.formatText(result.text);
+            // Pass true flag to enable GiNZA formatting
+            const formattedText = await this.formatText(result.text, true);
             result.text = formattedText;
           } else {
             console.log('Skipping GiNZA formatting as per user preference');
-            // Apply basic formatting instead if needed
-            // For now, we just use the raw text
+            // No need to call formatText at all when GiNZA is disabled
+            // We just use the raw text from transcription
           }
           // Note: We keep the original segments as they contain timing information
         } catch (formatError) {
@@ -505,7 +506,14 @@ export class PythonAudioProcessingManager implements AudioProcessingManager, Pro
   }
   
   // New method for text formatting using GiNZA
-  async formatText(text: string): Promise<string> {
+  async formatText(text: string, useGinza: boolean = false): Promise<string> {
+    if (!useGinza) {
+      // Early return if GiNZA is disabled
+      console.log('formatText called without GiNZA enabled - returning original text');
+      return text;
+    }
+    
+    // Only execute this code if GiNZA is enabled
     console.log('Formatting text with GiNZA');
     console.log('Text to format (first 100 chars):', text.substring(0, 100));
     
