@@ -72,6 +72,11 @@ temp/
 .env.development.local
 .env.test.local
 .env.production.local
+separated/
+
+# Whisper models (will be downloaded as needed)
+*.pt
+*.bin
 
 # Media files
 *.mp3

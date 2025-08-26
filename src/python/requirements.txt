@@ -14,4 +14,7 @@ pydub>=0.25.1
 
 # Utilities
 numpy>=1.24.0
-torch>=2.0.0
+
+# Compatible torch/torchaudio versions
+torch==2.2.0
+torchaudio==2.2.0
