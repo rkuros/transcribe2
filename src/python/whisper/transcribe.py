@@ -49,6 +49,35 @@ class ProgressCallback:
                 
                 report_progress(percent, estimated_time_remaining=estimated_remaining)
 
+def post_process_japanese_text(text):
+    """Apply Japanese-specific post-processing to improve text quality"""
+    # Fix common Japanese transcription issues
+    processed_text = text
+    
+    # Remove excessive whitespace while preserving paragraph structure
+    processed_text = processed_text.strip()
+    
+    # Fix common Whisper transcription errors in Japanese
+    processed_text = processed_text.replace("です。", "です。\n")
+    processed_text = processed_text.replace("ました。", "ました。\n")
+    
+    # Fix Japanese punctuation spacing
+    processed_text = processed_text.replace(" 。", "。")
+    processed_text = processed_text.replace(" 、", "、")
+    processed_text = processed_text.replace(" ！", "！")
+    processed_text = processed_text.replace(" ？", "？")
+    
+    # Fix common period mistakes
+    processed_text = processed_text.replace(".", "。")
+    processed_text = processed_text.replace(",", "、")
+    
+    # Fix spacing between alphanumeric and Japanese
+    import re
+    processed_text = re.sub(r'([a-zA-Z0-9])([\u3040-\u30ff\u4e00-\u9fff])', r'\1 \2', processed_text)
+    processed_text = re.sub(r'([\u3040-\u30ff\u4e00-\u9fff])([a-zA-Z0-9])', r'\1 \2', processed_text)
+    
+    return processed_text
+
 def transcribe_with_faster_whisper(audio_path, model_size="small", language=None):
     """Transcribe audio with faster-whisper"""
     try:
@@ -75,7 +104,7 @@ def transcribe_with_faster_whisper(audio_path, model_size="small", language=None
             # Method supports callback
             segments, info = model.transcribe(
                 audio_path,
-                language=language,
+                language=language or "ja",  # Default to Japanese if not specified
                 task="transcribe",
                 beam_size=5,
                 vad_filter=True,
@@ -85,7 +114,7 @@ def transcribe_with_faster_whisper(audio_path, model_size="small", language=None
             # Method doesn't support callback, use without it
             segments, info = model.transcribe(
                 audio_path,
-                language=language,
+                language=language or "ja",  # Default to Japanese if not specified
                 task="transcribe",
                 beam_size=5,
                 vad_filter=True
@@ -98,13 +127,20 @@ def transcribe_with_faster_whisper(audio_path, model_size="small", language=None
         text = ""
         
         for segment in segments:
+            # Apply post-processing to segment text
+            processed_segment_text = segment.text
+            
             result_segments.append({
                 "start": segment.start,
                 "end": segment.end,
-                "text": segment.text,
+                "text": processed_segment_text,
                 "confidence": float(segment.avg_logprob)
             })
-            text += segment.text + " "
+            text += processed_segment_text + " "
+        
+        # Apply post-processing to full text if Japanese
+        if info.language == "ja" or language == "ja":
+            text = post_process_japanese_text(text)
         
         # Report completion
         report_progress(100)
@@ -130,9 +166,20 @@ def transcribe_with_openai_whisper(audio_path, model_name="large-v3-turbo", lang
         report_progress(15)  # Model loaded
         
         # Start transcription
-        options = {}
+        options = {
+            # Apply more aggressive VAD for better sentence breaks
+            "vad_filter": True,
+            # Set higher values for better sentence punctuation
+            "best_of": 5,
+            # Set temperature for more predictable output
+            "temperature": 0,
+        }
+        
+        # Set language if provided, default to Japanese if not specified
         if language is not None:
             options["language"] = language
+        else:
+            options["language"] = "ja"
         
         # Set up a progress tracker by overriding decode_with_fallback
         original_decode = model.decode
@@ -158,21 +205,32 @@ def transcribe_with_openai_whisper(audio_path, model_name="large-v3-turbo", lang
         # Convert segments to the common format
         segments = []
         for segment in result["segments"]:
+            # Apply post-processing to segment text
+            processed_segment_text = segment["text"]
+            
             segments.append({
                 "start": segment["start"],
                 "end": segment["end"],
-                "text": segment["text"],
+                "text": processed_segment_text,
                 "confidence": segment.get("confidence", 0.0)
             })
+        
+        # Apply post-processing to full text if Japanese
+        text = result["text"]
+        if result.get("language") == "ja" or language == "ja":
+            text = post_process_japanese_text(text)
         
         # Report completion
         report_progress(100)
         
         return {
-            "text": result["text"],
+            "text": text,
             "segments": segments,
             "language": result.get("language", language)
         }
+        
+    except ImportError:
+        raise ImportError("OpenAI Whisper not installed. Please install it with 'pip install openai-whisper'.")
         
     except ImportError:
         raise ImportError("OpenAI Whisper not installed. Please install it with 'pip install openai-whisper'.")
