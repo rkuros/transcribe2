@@ -4,6 +4,7 @@ import * as url from 'url';
 import { ElectronFileManager } from './file-manager';
 import { SettingsManager } from './settings-manager';
 import { PythonAudioProcessingManager } from './audio-processing-manager';
+import { AWSAudioProcessingManager } from './aws-audio-processing-manager';
 import { ExportService } from './export-service';
 import { Logger } from './logger';
 import { ExportFormat, WhisperModel } from '../common/types';
@@ -86,10 +87,26 @@ app.on('window-all-closed', () => {
 // Initialize managers
 let fileManager: ElectronFileManager;
 let settingsManager: SettingsManager;
-let audioProcessingManager: PythonAudioProcessingManager;
+let pythonAudioProcessingManager: PythonAudioProcessingManager;
+let awsAudioProcessingManager: AWSAudioProcessingManager | null = null;
 let exportService: ExportService;
 let logger: Logger;
 let isSetupComplete = false;
+
+// Get the appropriate audio processing manager based on the selected model
+function getAudioProcessingManager(model: string): PythonAudioProcessingManager | AWSAudioProcessingManager {
+  // Check if this is an AWS model
+  if (model.startsWith('aws-transcribe')) {
+    if (!awsAudioProcessingManager && mainWindow) {
+      console.log('Initializing AWS audio processing manager');
+      awsAudioProcessingManager = new AWSAudioProcessingManager(mainWindow);
+    }
+    return awsAudioProcessingManager!;
+  }
+  
+  // Default to Python manager
+  return pythonAudioProcessingManager;
+}
 
 // Set up IPC handlers after window creation
 function setupIpcHandlers() {
@@ -99,7 +116,7 @@ function setupIpcHandlers() {
   // Initialize managers
   fileManager = new ElectronFileManager(mainWindow);
   settingsManager = new SettingsManager();
-  audioProcessingManager = new PythonAudioProcessingManager(mainWindow);
+  pythonAudioProcessingManager = new PythonAudioProcessingManager(mainWindow);
   exportService = new ExportService(mainWindow);
   logger = new Logger();
   
@@ -210,7 +227,9 @@ function setupIpcHandlers() {
   ipcMain.handle('transcribe-audio', async (_event, filePath: string, options: any) => {
     try {
       logger.info(`Starting transcription for ${filePath}`, { options });
-      const result = await audioProcessingManager.processAudio(filePath, options);
+      // Get the appropriate manager based on the selected model
+      const manager = getAudioProcessingManager(options.model);
+      const result = await manager.processAudio(filePath, options);
       logger.info(`Successfully transcribed audio file`, { 
         filePath, 
         model: result.modelUsed, 
@@ -225,19 +244,70 @@ function setupIpcHandlers() {
   });
   
   ipcMain.handle('separate-audio', async (_event, filePath: string) => {
-    return audioProcessingManager.separateAudio(filePath);
+    // Always use Python manager for audio separation
+    return pythonAudioProcessingManager.separateAudio(filePath);
   });
   
   ipcMain.handle('get-available-models', async () => {
-    return audioProcessingManager.getAvailableModels();
+    // Get models from both managers
+    const pythonModels = await pythonAudioProcessingManager.getAvailableModels();
+    
+    // Try to get AWS models if possible, but don't fail if AWS is not available
+    let awsModels: WhisperModel[] = [];
+    try {
+      if (!awsAudioProcessingManager && mainWindow) {
+        awsAudioProcessingManager = new AWSAudioProcessingManager(mainWindow);
+      }
+      if (awsAudioProcessingManager) {
+        awsModels = await awsAudioProcessingManager.getAvailableModels();
+      }
+    } catch (e) {
+      console.warn('Failed to get AWS models:', e);
+    }
+    
+    return [...pythonModels, ...awsModels];
   });
   
   ipcMain.handle('check-dependencies', async () => {
     try {
       logger.info('Checking dependencies');
-      const result = await audioProcessingManager.checkDependencies();
-      logger.info('Dependency check completed', result);
-      return result;
+      // Start with Python dependencies
+      const pythonDeps = await pythonAudioProcessingManager.checkDependencies();
+      
+      // Try to check AWS dependencies, but don't fail if AWS checking fails
+      try {
+        if (!awsAudioProcessingManager && mainWindow) {
+          awsAudioProcessingManager = new AWSAudioProcessingManager(mainWindow);
+        }
+        if (awsAudioProcessingManager) {
+          const awsDeps = await awsAudioProcessingManager.checkDependencies();
+          
+          // Merge the dependency information
+          const combinedDeps = {
+            ...pythonDeps,
+            awsTranscribe: awsDeps.awsTranscribe,
+            models: {
+              ...pythonDeps.models,
+              ...awsDeps.models
+            },
+            details: {
+              ...pythonDeps.details,
+              awsTranscribe: awsDeps.details?.awsTranscribe,
+              models: {
+                ...pythonDeps.details?.models,
+                ...awsDeps.details?.models
+              }
+            }
+          };
+          logger.info('Dependency check completed', combinedDeps);
+          return combinedDeps;
+        }
+      } catch (e) {
+        console.warn('Failed to check AWS dependencies:', e);
+      }
+      
+      logger.info('Dependency check completed', pythonDeps);
+      return pythonDeps;
     } catch (error) {
       const appError = categorizeError(error);
       logger.error(appError);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { WhisperModel, ProcessingOptions, TranscriptionResult, ProgressStatus, DependencyStatus, TranscriptionSegment, ExportFormat } from '../common/types';
+import { WhisperModel, TranscriptionEngine, ProcessingOptions, TranscriptionResult, ProgressStatus, DependencyStatus, TranscriptionSegment, ExportFormat } from '../common/types';
 import RecentFiles from './components/RecentFiles';
 import ProgressIndicator from './components/ProgressIndicator';
 import TranscriptionEditor from './components/TranscriptionEditor';
@@ -24,6 +24,7 @@ const AppContent: React.FC = () => {
   const [selectedModel, setSelectedModel] = useState<WhisperModel>(WhisperModel.FASTER_WHISPER_SMALL);
   const [enableSeparation, setEnableSeparation] = useState(true);
   const [enableGinza, setEnableGinza] = useState(true);
+  const [awsRegion, setAwsRegion] = useState<string>('ap-northeast-1'); // デフォルトは東京リージョン
   const [transcriptionResult, setTranscriptionResult] = useState<TranscriptionResult | null>(null);
   const [editedTranscription, setEditedTranscription] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -166,11 +167,16 @@ const AppContent: React.FC = () => {
       
       // Transcribe the audio
       setProgress({ stage: 'transcription', percent: 0 });
+      // AWS Transcribe用のオプションを追加
+      const isAwsModel = selectedModel.startsWith('aws-transcribe');
+      
       const result = await window.api.transcribeAudio(filePath, {
         model: selectedModel,
         enableAudioSeparation: enableSeparation,
         enableAutoFormatting: true, // 自動テキスト整形を有効化
         enableGinzaFormatting: enableGinza, // GiNZA日本語整形の有効/無効
+        // AWS特有のオプション
+        awsRegion: isAwsModel ? awsRegion : undefined,
       });
       
       setTranscriptionResult(result);
@@ -313,6 +319,7 @@ const AppContent: React.FC = () => {
         <h2 className="text-xl font-semibold mb-4">2. モデルと処理オプションを選択</h2>
         
         <div className="model-selector">
+          <h3 className="text-lg font-medium mb-3">Whisper モデル</h3>
           <div className="model-option">
             <input 
               type="radio"
@@ -363,6 +370,64 @@ const AppContent: React.FC = () => {
               <p className="text-sm text-gray-600">最高精度、より遅い処理速度</p>
             </label>
           </div>
+          
+          <h3 className="text-lg font-medium my-4">AWS Transcribe モデル</h3>
+          <div className="model-option">
+            <input 
+              type="radio"
+              id="model-aws-auto"
+              name="model"
+              checked={selectedModel === WhisperModel.AWS_TRANSCRIBE_AUTO}
+              onChange={() => {
+                setSelectedModel(WhisperModel.AWS_TRANSCRIBE_AUTO);
+                window.api.setDefaultModel(WhisperModel.AWS_TRANSCRIBE_AUTO);
+              }}
+            />
+            <label htmlFor="model-aws-auto" className="ml-2">
+              <span className="font-medium">AWS Transcribe 一般</span>
+              <p className="text-sm text-gray-600">クラウド処理、高精度、自動言語検出</p>
+            </label>
+          </div>
+          
+          <div className="model-option">
+            <input 
+              type="radio"
+              id="model-aws-medical"
+              name="model"
+              checked={selectedModel === WhisperModel.AWS_TRANSCRIBE_MEDICAL}
+              onChange={() => {
+                setSelectedModel(WhisperModel.AWS_TRANSCRIBE_MEDICAL);
+                window.api.setDefaultModel(WhisperModel.AWS_TRANSCRIBE_MEDICAL);
+              }}
+            />
+            <label htmlFor="model-aws-medical" className="ml-2">
+              <span className="font-medium">AWS Transcribe Medical</span>
+              <p className="text-sm text-gray-600">医療用語に特化、高精度</p>
+            </label>
+          </div>
+          
+          {/* AWS特有の設定 - モデルがAWS関連の場合のみ表示 */}
+          {selectedModel.startsWith('aws-transcribe') && (
+            <div className="mt-4 p-3 bg-gray-100 rounded-lg">
+              <h4 className="font-medium mb-2">AWS設定</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="aws-region" className="block text-sm font-medium text-gray-700 mb-1">AWS リージョン</label>
+                  <select
+                    id="aws-region"
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm py-1"
+                    value={awsRegion}
+                    onChange={(e) => setAwsRegion(e.target.value)}
+                  >
+                    <option value="ap-northeast-1">東京 (ap-northeast-1)</option>
+                    <option value="ap-northeast-3">大阪 (ap-northeast-3)</option>
+                    <option value="us-east-1">バージニア (us-east-1)</option>
+                    <option value="us-west-2">オレゴン (us-west-2)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
         
         <div className="mt-6 space-y-3">
@@ -438,6 +503,9 @@ const AppContent: React.FC = () => {
             <p><strong>使用モデル:</strong> {transcriptionResult.modelUsed}</p>
             <p><strong>処理時間:</strong> {transcriptionResult.processingTime.toFixed(2)} 秒</p>
             <p><strong>音声分離:</strong> {transcriptionResult.audioSeparationUsed ? '有効' : '無効'}</p>
+            {transcriptionResult.awsJobId && (
+              <p><strong>AWS Job ID:</strong> {transcriptionResult.awsJobId}</p>
+            )}
           </div>
           
           <TranscriptionEditor 

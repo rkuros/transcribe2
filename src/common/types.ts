@@ -1,9 +1,16 @@
 // Common types shared between main and renderer processes
 
+export enum TranscriptionEngine {
+  WHISPER = 'whisper',
+  AWS_TRANSCRIBE = 'aws-transcribe'
+}
+
 export enum WhisperModel {
   FASTER_WHISPER_SMALL = 'faster-whisper-small',
   FASTER_WHISPER_MEDIUM = 'faster-whisper-medium',
-  OPENAI_WHISPER_LARGE_V3_TURBO = 'openai-whisper-large-v3-turbo'
+  OPENAI_WHISPER_LARGE_V3_TURBO = 'openai-whisper-large-v3-turbo',
+  AWS_TRANSCRIBE_AUTO = 'aws-transcribe-auto',
+  AWS_TRANSCRIBE_MEDICAL = 'aws-transcribe-medical'
 }
 
 export enum ExportFormat {
@@ -19,6 +26,9 @@ export interface ProcessingOptions {
   enableGinzaFormatting?: boolean;
   outputFormat?: ExportFormat;
   language?: string;
+  awsRegion?: string;
+  awsVocabulary?: string;
+  awsCustomVocabularyName?: string;
 }
 
 export interface AudioMetadata {
@@ -42,6 +52,8 @@ export interface TranscriptionResult {
   processingTime: number;
   modelUsed: WhisperModel;
   audioSeparationUsed: boolean;
+  awsJobId?: string;
+  awsTranscribeDetails?: any;
 }
 
 export interface DependencyStatus {
@@ -49,6 +61,7 @@ export interface DependencyStatus {
   demucs: boolean;
   fasterWhisper: boolean;
   openaiWhisper: boolean;
+  awsTranscribe?: boolean;
   models: {
     [key: string]: boolean;
   };
@@ -57,6 +70,7 @@ export interface DependencyStatus {
     demucs?: any;
     fasterWhisper?: any;
     openaiWhisper?: any;
+    awsTranscribe?: any;
     models?: {
       [key: string]: any;
     };
