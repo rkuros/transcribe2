@@ -167,13 +167,13 @@ def transcribe_with_openai_whisper(audio_path, model_name="large-v3-turbo", lang
         
         # Start transcription
         options = {
-            # Apply more aggressive VAD for better sentence breaks
-            "vad_filter": True,
             # Set higher values for better sentence punctuation
             "best_of": 5,
             # Set temperature for more predictable output
             "temperature": 0,
         }
+        
+        # Note: vad_filter is not supported in OpenAI Whisper, only in faster-whisper
         
         # Set language if provided, default to Japanese if not specified
         if language is not None:
