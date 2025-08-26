@@ -105,6 +105,7 @@ npm run package
 - [使い方ガイド](docs/getting-started.md) - アプリケーションの基本的な使い方
 - [トラブルシューティング](docs/troubleshooting.md) - 問題解決のためのガイド
 - [アーキテクチャ概要](docs/architecture.md) - アプリケーションの技術的構造（開発者向け）
+- [開発ガイド](docs/development.md) - 開発環境とGitリポジトリの管理（開発者向け）
 
 ## クイックスタート
 
