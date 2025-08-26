@@ -216,18 +216,7 @@ const TranscriptionEditor: React.FC<TranscriptionEditorProps> = ({
           >
             やり直し
           </button>
-          <button
-            className="text-sm px-2 py-1 bg-purple-600 text-white rounded hover:bg-purple-700"
-            onClick={handleFormatParagraphs}
-          >
-            段落を整形
-          </button>
-          <button
-            className="text-sm px-2 py-1 bg-cyan-600 text-white rounded hover:bg-cyan-700"
-            onClick={handleCleanupText}
-          >
-            文字を整形
-          </button>
+          {/* GiNZA自動整形に置き換えたため手動整形ボタンは削除 */}
         </div>
         <button
           className="text-sm px-2 py-1 bg-gray-700 text-gray-200 rounded hover:bg-gray-600"

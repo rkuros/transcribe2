@@ -15,6 +15,7 @@ export enum ExportFormat {
 export interface ProcessingOptions {
   model: WhisperModel;
   enableAudioSeparation: boolean;
+  enableAutoFormatting?: boolean;
   outputFormat?: ExportFormat;
   language?: string;
 }
@@ -63,7 +64,12 @@ export interface DependencyStatus {
 }
 
 export interface ProgressStatus {
-  stage: 'separation' | 'transcription' | 'complete';
+  stage: 'separation' | 'transcription' | 'formatting' | 'complete';
   percent: number;
   estimatedTimeRemaining?: number;
+}
+
+export interface FormattingOptions {
+  autoFormat: boolean;
+  language: string;
 }

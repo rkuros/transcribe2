@@ -1,6 +1,7 @@
 import { spawn } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
 import { BrowserWindow } from 'electron';
 import { AudioProcessingManager, ProgressReporter } from './interfaces';
 import { 
@@ -8,7 +9,8 @@ import {
   ProcessingOptions, 
   TranscriptionResult,
   DependencyStatus,
-  ProgressStatus
+  ProgressStatus,
+  FormattingOptions
 } from '../common/types';
 
 export class PythonAudioProcessingManager implements AudioProcessingManager, ProgressReporter {
@@ -46,6 +48,7 @@ export class PythonAudioProcessingManager implements AudioProcessingManager, Pro
     // Store original file path for reference
     this.originalFilePath = filePath;
     let audioFilePath = filePath;
+    let startTime = Date.now();
 
     // Step 1: Separate audio if enabled
     if (options.enableAudioSeparation) {
@@ -60,7 +63,23 @@ export class PythonAudioProcessingManager implements AudioProcessingManager, Pro
 
     // Step 2: Transcribe audio
     try {
-      return await this.transcribeAudio(audioFilePath, options.model);
+      let result = await this.transcribeAudio(audioFilePath, options.model);
+      
+      // Step 3: Apply NLP formatting with GiNZA if auto-formatting is enabled
+      if (options.enableAutoFormatting !== false) { // Default to true if not specified
+        try {
+          const formattedText = await this.formatText(result.text);
+          result.text = formattedText;
+          // Note: We keep the original segments as they contain timing information
+        } catch (formatError) {
+          console.error('Error during text formatting:', formatError);
+          // Continue with unformatted text if formatting fails
+        }
+      }
+      
+      // Update processing time
+      result.processingTime = (Date.now() - startTime) / 1000;
+      return result;
     } catch (error) {
       console.error('Error during transcription:', error);
       // Return a default result if transcription fails
@@ -471,6 +490,140 @@ export class PythonAudioProcessingManager implements AudioProcessingManager, Pro
           modelUsed: model,
           audioSeparationUsed: false
         });
+      }
+    });
+  }
+  
+  // New method for text formatting using GiNZA
+  async formatText(text: string): Promise<string> {
+    console.log('Formatting text with GiNZA');
+    
+    const scriptPath = path.join(this.scriptBasePath, 'nlp', 'format.py');
+    
+    // Check if script exists
+    if (!fs.existsSync(scriptPath)) {
+      console.error(`Text formatting script not found: ${scriptPath}`);
+      
+      // Show error to user
+      if (this.mainWindow) {
+        this.mainWindow.webContents.send('python-error', {
+          message: `テキスト整形スクリプトが見つかりません。`,
+          error: `スクリプトパス: ${scriptPath}`
+        });
+      }
+      
+      // Return original text if script not found
+      return text;
+    }
+    
+    return new Promise<string>((resolve, reject) => {
+      try {
+        // Create a temporary file to store the text
+        const tempFilePath = path.join(os.tmpdir(), `text_to_format_${Date.now()}.txt`);
+        fs.writeFileSync(tempFilePath, text, 'utf-8');
+        
+        // Spawn python process with the text file
+        const process = spawn(
+          this.pythonPath, 
+          [scriptPath, tempFilePath, '--is-file']
+        );
+        
+        let stdout = '';
+        let stderr = '';
+        
+        process.stdout.on('data', (data) => {
+          stdout += data.toString();
+          this.handlePythonOutput(data.toString());
+        });
+        
+        process.stderr.on('data', (data) => {
+          stderr += data.toString();
+        });
+        
+        process.on('close', (code) => {
+          // Clean up temporary file
+          try {
+            fs.unlinkSync(tempFilePath);
+          } catch (e) {
+            console.error('Failed to delete temporary file:', e);
+          }
+          
+          if (code !== 0) {
+            console.error('Text formatting failed:', stderr);
+            
+            // Show error to user but return original text
+            if (this.mainWindow) {
+              this.mainWindow.webContents.send('python-error', {
+                message: `テキスト整形処理が失敗しました。元のテキストを使用します。`,
+                error: stderr
+              });
+            }
+            
+            return resolve(text);
+          }
+          
+          try {
+            // Parse the JSON result
+            const lines = stdout.split('\n');
+            let lastValidJson = null;
+            
+            // Find the last valid JSON object
+            for (let i = lines.length - 1; i >= 0; i--) {
+              const line = lines[i].trim();
+              if (!line) continue;
+              
+              try {
+                const parsedJson = JSON.parse(line);
+                if ('success' in parsedJson) {
+                  lastValidJson = parsedJson;
+                  break;
+                }
+              } catch (e) {
+                // Not valid JSON, continue searching
+                continue;
+              }
+            }
+            
+            // If no valid JSON found
+            if (!lastValidJson) {
+              console.error('No valid JSON found in text formatting output');
+              return resolve(text);
+            }
+            
+            const result = lastValidJson;
+            
+            if (result.success && result.result) {
+              // Return the formatted text
+              console.log('Text formatting completed');
+              resolve(result.result);
+            } else {
+              console.error('Invalid text formatting result:', result);
+              // Return the original text
+              resolve(text);
+            }
+          } catch (error) {
+            console.error('Failed to parse text formatting result:', error);
+            // Return the original text
+            resolve(text);
+          }
+        });
+        
+        process.on('error', (error) => {
+          console.error('Failed to start text formatting process:', error);
+          // Clean up temporary file
+          try {
+            fs.unlinkSync(tempFilePath);
+          } catch (e) {
+            console.error('Failed to delete temporary file:', e);
+          }
+          
+          // Return the original text
+          resolve(text);
+        });
+      } catch (error) {
+        console.error('Unexpected error during text formatting:', error);
+        // Return the original text
+        resolve(text);
       }
     });
   }
