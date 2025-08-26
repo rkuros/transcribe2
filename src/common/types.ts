@@ -16,6 +16,7 @@ export interface ProcessingOptions {
   model: WhisperModel;
   enableAudioSeparation: boolean;
   enableAutoFormatting?: boolean;
+  enableGinzaFormatting?: boolean;
   outputFormat?: ExportFormat;
   language?: string;
 }

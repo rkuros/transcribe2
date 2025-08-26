@@ -1,4 +1,4 @@
-import { spawn } from 'child_process';
+import { spawn, ChildProcess } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -65,11 +65,21 @@ export class PythonAudioProcessingManager implements AudioProcessingManager, Pro
     try {
       let result = await this.transcribeAudio(audioFilePath, options.model);
       
-      // Step 3: Apply NLP formatting with GiNZA if auto-formatting is enabled
+      // Step 3: Apply NLP formatting if auto-formatting is enabled
       if (options.enableAutoFormatting !== false) { // Default to true if not specified
         try {
-          const formattedText = await this.formatText(result.text);
-          result.text = formattedText;
+          // Apply GiNZA formatting if specifically enabled or if enableGinzaFormatting is not specified (backward compatibility)
+          const useGinza = options.enableGinzaFormatting !== false;
+          
+          if (useGinza) {
+            console.log('Using GiNZA for Japanese text formatting');
+            const formattedText = await this.formatText(result.text);
+            result.text = formattedText;
+          } else {
+            console.log('Skipping GiNZA formatting as per user preference');
+            // Apply basic formatting instead if needed
+            // For now, we just use the raw text
+          }
           // Note: We keep the original segments as they contain timing information
         } catch (formatError) {
           console.error('Error during text formatting:', formatError);
@@ -497,6 +507,7 @@ export class PythonAudioProcessingManager implements AudioProcessingManager, Pro
   // New method for text formatting using GiNZA
   async formatText(text: string): Promise<string> {
     console.log('Formatting text with GiNZA');
+    console.log('Text to format (first 100 chars):', text.substring(0, 100));
     
     const scriptPath = path.join(this.scriptBasePath, 'nlp', 'format.py');
     
@@ -518,29 +529,92 @@ export class PythonAudioProcessingManager implements AudioProcessingManager, Pro
     
     return new Promise<string>((resolve, reject) => {
       try {
-        // Create a temporary file to store the text
-        const tempFilePath = path.join(os.tmpdir(), `text_to_format_${Date.now()}.txt`);
+        // Create a temporary file to store the text with a safe filename
+        // Use a timestamp and a random number to create a unique filename without special characters
+        const timestamp = Date.now();
+        const randomSuffix = Math.floor(Math.random() * 10000);
+        const tempFilePath = path.join(os.tmpdir(), `text_format_${timestamp}_${randomSuffix}.txt`);
+        
+        // Ensure the temporary directory exists
+        const tempDir = path.dirname(tempFilePath);
+        if (!fs.existsSync(tempDir)) {
+          fs.mkdirSync(tempDir, { recursive: true });
+        }
+        
+        // Write text to the temporary file
         fs.writeFileSync(tempFilePath, text, 'utf-8');
         
+        // Set timeout for text formatting process (2 minutes)
+        const timeoutMs = 2 * 60 * 1000;
+        let timeoutId: NodeJS.Timeout | null = null;
+        
         // Spawn python process with the text file
-        const process = spawn(
+        const process: ChildProcess = spawn(
           this.pythonPath, 
-          [scriptPath, tempFilePath, '--is-file']
+          [scriptPath, tempFilePath, '--is-file'],
+          { 
+            // Set stdio configuration to handle large outputs
+            stdio: ['pipe', 'pipe', 'pipe']
+            // Note: maxBuffer is only for exec/execFile, not for spawn
+          }
         );
         
         let stdout = '';
         let stderr = '';
         
-        process.stdout.on('data', (data) => {
-          stdout += data.toString();
-          this.handlePythonOutput(data.toString());
-        });
+        // Handle process timeouts
+        timeoutId = setTimeout(() => {
+          console.log('Text formatting process timed out');
+          try {
+            if (process && process.pid) {
+              process.kill();
+            }
+          } catch (e) {
+            console.error('Failed to kill timed out process:', e);
+          }
+          
+          // Clean up temporary file
+          try {
+            fs.unlinkSync(tempFilePath);
+          } catch (e) {
+            console.error('Failed to delete temporary file:', e);
+          }
+          
+          // Show error but continue with original text
+          if (this.mainWindow) {
+            this.mainWindow.webContents.send('python-error', {
+              message: `テキスト整形処理がタイムアウトしました。元のテキストを使用します。`,
+              error: 'タイムアウト: 120秒'
+            });
+          }
+          
+          resolve(text);
+        }, timeoutMs);
         
-        process.stderr.on('data', (data) => {
-          stderr += data.toString();
-        });
+        if (process.stdout) {
+          process.stdout.on('data', (data: Buffer) => {
+            stdout += data.toString();
+            
+            try {
+              this.handlePythonOutput(data.toString());
+            } catch (e) {
+              console.error('Error handling Python output:', e);
+              // Continue processing even if output handling fails
+            }
+          });
+        }
         
-        process.on('close', (code) => {
+        if (process.stderr) {
+          process.stderr.on('data', (data: Buffer) => {
+            stderr += data.toString();
+            console.error('Text formatting stderr:', data.toString());
+          });
+        }
+        
+        process.on('close', (code: number | null) => {
+          // Clear timeout
+          if (timeoutId) clearTimeout(timeoutId);
+          
           // Clean up temporary file
           try {
             fs.unlinkSync(tempFilePath);
@@ -549,14 +623,28 @@ export class PythonAudioProcessingManager implements AudioProcessingManager, Pro
           }
           
           if (code !== 0) {
-            console.error('Text formatting failed:', stderr);
+            console.error('Text formatting failed with code:', code);
+            console.error('Error output:', stderr);
             
-            // Show error to user but return original text
-            if (this.mainWindow) {
-              this.mainWindow.webContents.send('python-error', {
-                message: `テキスト整形処理が失敗しました。元のテキストを使用します。`,
-                error: stderr
-              });
+            // Check if this is a broken pipe error
+            if (stderr.includes('BrokenPipeError') || stderr.includes('write EPIPE')) {
+              console.error('Broken pipe error detected in GiNZA formatting');
+              
+              // Show specific error for broken pipe
+              if (this.mainWindow) {
+                this.mainWindow.webContents.send('python-error', {
+                  message: `テキスト整形中に通信エラーが発生しました。元のテキストを使用します。`,
+                  error: `Broken pipe error: ${stderr}`
+                });
+              }
+            } else {
+              // Show general error
+              if (this.mainWindow) {
+                this.mainWindow.webContents.send('python-error', {
+                  message: `テキスト整形処理が失敗しました。元のテキストを使用します。`,
+                  error: stderr
+                });
+              }
             }
             
             return resolve(text);
@@ -595,7 +683,25 @@ export class PythonAudioProcessingManager implements AudioProcessingManager, Pro
             if (result.success && result.result) {
               // Return the formatted text
               console.log('Text formatting completed');
-              resolve(result.result);
+              console.log('Formatted result (first 100 chars):', result.result.substring(0, 100));
+              console.log('Original text length:', text.length, 'Formatted text length:', result.result.length);
+              console.log('Formatting successful:', text !== result.result ? 'Text was changed' : 'No changes made to text');
+              
+              // Get the formatted text from result
+              let formattedText = result.result;
+              
+              // Check if the text contains GiNZA formatting markers and remove them
+              if (formattedText && formattedText.startsWith('【GiNZA整形済】')) {
+                console.log('Removing GiNZA format marker from text for safe handling');
+                formattedText = formattedText.replace(/^【GiNZA整形済】/, '');
+              }
+              
+              // Check for metadata indicating GiNZA formatting was applied
+              if (result.metadata && result.metadata.formatted_with_ginza) {
+                console.log('Text was formatted with GiNZA (detected via metadata)');
+              }
+              
+              resolve(formattedText);
             } else {
               console.error('Invalid text formatting result:', result);
               // Return the original text
@@ -608,7 +714,10 @@ export class PythonAudioProcessingManager implements AudioProcessingManager, Pro
           }
         });
         
-        process.on('error', (error) => {
+        process.on('error', (error: Error) => {
+          // Clear timeout
+          if (timeoutId) clearTimeout(timeoutId);
+          
           console.error('Failed to start text formatting process:', error);
           // Clean up temporary file
           try {

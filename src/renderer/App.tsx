@@ -23,6 +23,7 @@ const AppContent: React.FC = () => {
   const [audioFile, setAudioFile] = useState<AudioFile | null>(null);
   const [selectedModel, setSelectedModel] = useState<WhisperModel>(WhisperModel.FASTER_WHISPER_SMALL);
   const [enableSeparation, setEnableSeparation] = useState(true);
+  const [enableGinza, setEnableGinza] = useState(true);
   const [transcriptionResult, setTranscriptionResult] = useState<TranscriptionResult | null>(null);
   const [editedTranscription, setEditedTranscription] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -100,8 +101,12 @@ const AppContent: React.FC = () => {
         try {
           // Get file metadata
           const metadata = await window.api.getAudioMetadata(filePath);
-          const pathParts = filePath.split('/');
-          const fileName = pathParts[pathParts.length - 1];
+          
+          // Extract filename safely - handle both slash types
+          let fileName = filePath.split(/[\/\\]/).pop() || '';
+          
+          // Remove any GiNZA formatting markers from the displayed filename if present
+          fileName = fileName.replace(/【GiNZA.*】|◆◆◆/g, '');
           
           const audioFileData: AudioFile = {
             path: filePath,
@@ -120,8 +125,11 @@ const AppContent: React.FC = () => {
           setError(null);
         } catch (metadataErr) {
           // Fallback if metadata extraction fails
-          const pathParts = filePath.split('/');
-          const fileName = pathParts[pathParts.length - 1];
+          // Extract filename safely - handle both slash types
+          let fileName = filePath.split(/[\/\\]/).pop() || '';
+          
+          // Remove any GiNZA formatting markers from the displayed filename if present
+          fileName = fileName.replace(/【GiNZA.*】|◆◆◆/g, '');
           
           setAudioFile({
             path: filePath,
@@ -161,6 +169,8 @@ const AppContent: React.FC = () => {
       const result = await window.api.transcribeAudio(filePath, {
         model: selectedModel,
         enableAudioSeparation: enableSeparation,
+        enableAutoFormatting: true, // 自動テキスト整形を有効化
+        enableGinzaFormatting: enableGinza, // GiNZA日本語整形の有効/無効
       });
       
       setTranscriptionResult(result);
@@ -355,7 +365,7 @@ const AppContent: React.FC = () => {
           </div>
         </div>
         
-        <div className="mt-6">
+        <div className="mt-6 space-y-3">
           <div className="flex items-center">
             <input 
               type="checkbox"
@@ -369,6 +379,21 @@ const AppContent: React.FC = () => {
             <label htmlFor="enable-separation" className="ml-2">
               <span className="font-medium">Demucsで音声分離を有効化</span>
               <p className="text-sm text-gray-600">ボーカルを分離してより高品質な文字起こしを実現</p>
+            </label>
+          </div>
+          
+          <div className="flex items-center">
+            <input 
+              type="checkbox"
+              id="enable-ginza"
+              checked={enableGinza}
+              onChange={(e) => {
+                setEnableGinza(e.target.checked);
+              }}
+            />
+            <label htmlFor="enable-ginza" className="ml-2">
+              <span className="font-medium">GiNZAで日本語テキスト整形を有効化</span>
+              <p className="text-sm text-gray-600">自然な段落分けと読みやすさを向上（日本語のみ）</p>
             </label>
           </div>
         </div>
