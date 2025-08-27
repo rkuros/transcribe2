@@ -15,7 +15,7 @@ export class StrandsAgentManager {
   private region: string = 'us-east-1'; // デフォルトリージョン（バージニア）
   private agentId: string = ''; // Strands Agentのエージェント ID
   private agentAliasId: string = ''; // Strands Agentのエイリアス ID
-  private modelId: string = 'anthropic.claude-instant-v1'; // フォールバック用のモデルID
+  private modelId: string = 'us.anthropic.claude-3-7-sonnet-20250219-v1:0'; // Claude 3.7 Sonnetモデル
   // 利用可能なStrands Agents
 
   constructor(mainWindow: BrowserWindow | null, agentId?: string, agentAliasId?: string) {
@@ -92,6 +92,89 @@ export class StrandsAgentManager {
     }
   }
 
+  // テキストを複数のチャンクに分割する補助メソッド
+  private splitTextIntoChunks(text: string, chunkSize: number): string[] {
+    const chunks: string[] = [];
+    let startIndex = 0;
+    
+    while (startIndex < text.length) {
+      // チャンクサイズを超えない範囲で、文の終わりで区切る
+      let endIndex = Math.min(startIndex + chunkSize, text.length);
+      
+      // 文の終わりを探す（。や！や？で区切る）
+      if (endIndex < text.length) {
+        // 次の文末まで探索
+        const nextSentenceEnd = text.indexOf('。', endIndex);
+        const nextExclamationEnd = text.indexOf('！', endIndex);
+        const nextQuestionEnd = text.indexOf('？', endIndex);
+        
+        let sentenceEnd = -1;
+        if (nextSentenceEnd !== -1) sentenceEnd = nextSentenceEnd + 1;
+        if (nextExclamationEnd !== -1 && (sentenceEnd === -1 || nextExclamationEnd < sentenceEnd)) sentenceEnd = nextExclamationEnd + 1;
+        if (nextQuestionEnd !== -1 && (sentenceEnd === -1 || nextQuestionEnd < sentenceEnd)) sentenceEnd = nextQuestionEnd + 1;
+        
+        // 文末が見つからない場合や、文末が遠すぎる場合は、最大でも追加のchunkSize/5まで探索
+        if (sentenceEnd === -1 || sentenceEnd > endIndex + chunkSize / 5) {
+          sentenceEnd = endIndex;
+        }
+        
+        endIndex = sentenceEnd;
+      }
+      
+      chunks.push(text.substring(startIndex, endIndex));
+      startIndex = endIndex;
+    }
+    
+    return chunks;
+  }
+
+  // 大きなテキストを処理するメソッド
+  private async processLargeText(text: string, length: SummarizationLength): Promise<SummarizationResult> {
+    const startTime = Date.now();
+    
+    // テキストが小さい場合は直接要約
+    if (text.length < 30000) {
+      return await this.summarizeWithBedrockDirect(text, length);
+    }
+    
+    console.log(`テキストが大きいため(${text.length}文字)、チャンク処理を適用します`);
+    
+    // テキストを複数のチャンクに分割
+    const chunks = this.splitTextIntoChunks(text, 25000);
+    const chunkSummaries: string[] = [];
+    
+    console.log(`テキストを${chunks.length}個のチャンクに分割しました`);
+    
+    // 各チャンクを要約
+    for (let i = 0; i < chunks.length; i++) {
+      console.log(`チャンク ${i+1}/${chunks.length} を処理中... (${chunks[i].length}文字)`);
+      const result = await this.summarizeWithBedrockDirect(
+        chunks[i], 
+        SummarizationLength.SHORT
+      );
+      chunkSummaries.push(result.summary);
+    }
+    
+    console.log('すべてのチャンクの要約が完了しました。最終要約を作成します');
+    
+    // すべてのチャンクの要約を結合して再要約
+    const combinedText = `以下は長いテキストを分割して要約した結果です。これらの要約を元に、全体の要約を作成してください：\n\n${chunkSummaries.join("\n\n---\n\n")}`;
+    
+    const finalResult = await this.summarizeWithBedrockDirect(
+      combinedText, 
+      length
+    );
+    
+    const processingTime = (Date.now() - startTime) / 1000;
+    
+    return {
+      originalText: text,
+      summary: finalResult.summary,
+      processingTime: processingTime,
+      modelUsed: `${finalResult.modelUsed} (チャンク処理適用)`
+    };
+  }
+
   // 文字起こしテキストを要約する
   async summarizeText(text: string, options: {
     agentId?: string,
@@ -106,9 +189,16 @@ export class StrandsAgentManager {
     const agentId = options.agentId || this.agentId;
     const agentAliasId = options.agentAliasId || this.agentAliasId;
     const length = options.length || SummarizationLength.MEDIUM;
-    const promptTemplate = this.getSummarizationPrompt(text, length);
     
     try {
+      // テキストサイズが大きい場合はチャンク処理
+      if (text.length > 30000) {
+        console.log(`大きなテキスト(${text.length}文字)のチャンク処理を開始します`);
+        return await this.processLargeText(text, length);
+      }
+      
+      const promptTemplate = this.getSummarizationPrompt(text, length);
+      
       // StrandsAgentが設定されている場合はそれを使用する
       if (agentId && agentAliasId) {
         console.log('Strands Agentを使用して要約を開始します');
@@ -182,14 +272,19 @@ export class StrandsAgentManager {
     try {
       console.log(`Bedrockを直接呼び出して要約を実行: モデルID=${this.modelId}`);
       
-      // Claude Instant v1用のペイロード形式
+      // Claude 3.7 Sonnetのペイロード形式
       const payload = {
-        prompt: `\n\nHuman: ${promptTemplate}\n\nAssistant: `,
-        max_tokens_to_sample: 4096,
+        anthropic_version: "bedrock-2023-05-31",
+        max_tokens: 4096,
         temperature: 0,
+        messages: [
+          {
+            role: "user",
+            content: promptTemplate
+          }
+        ],
         top_k: 250,
-        top_p: 1,
-        stop_sequences: ["\n\nHuman:"]
+        top_p: 1
       };
       
       const command = new InvokeModelCommand({
@@ -203,7 +298,10 @@ export class StrandsAgentManager {
       // レスポンスをデコードして要約を抽出
       const responseBody = new TextDecoder().decode(response.body);
       const parsedResponse = JSON.parse(responseBody);
-      const summary = parsedResponse.completion || '要約の生成中にエラーが発生しました';
+      // Claude 3.7 Sonnet用のレスポンスフォーマット対応
+      const summary = parsedResponse.content && parsedResponse.content[0] ? 
+                     parsedResponse.content[0].text : 
+                     (parsedResponse.completion || '要約の生成中にエラーが発生しました');
       
       const processingTime = (Date.now() - startTime) / 1000;
       
@@ -225,22 +323,24 @@ export class StrandsAgentManager {
     const formattedDate = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 ${now.getHours()}時${now.getMinutes()}分${now.getSeconds()}秒`;
     
     const lengthInstructions = {
-      [SummarizationLength.SHORT]: '主要ポイントのみを簡潔にまとめた要約を作成してください。',
-      [SummarizationLength.MEDIUM]: '重要なトピックごとに整理した要約を作成してください。',
-      [SummarizationLength.LONG]: 'トピックごとに詳細に整理した要約を作成してください。重要な詳細をすべて含めてください。'
+      [SummarizationLength.SHORT]: 'テキストの10-15%の長さで、主要ポイントのみを簡潔にまとめた要約を作成してください。トピックは2～3個に制限してください。',
+      [SummarizationLength.MEDIUM]: 'テキストの20-30%の長さで、重要なトピックごとに整理した要約を作成してください。トピックは4～6個程度にしてください。',
+      [SummarizationLength.LONG]: 'テキストの35-50%の長さで、トピックごとに詳細に整理した要約を作成してください。重要な詳細を含め、必要に応じトピックを複数に分けてください。'
     };
     
-    return `以下のテキストを要約してください。${lengthInstructions[length]}
+    return `このデータの要約を作成することがあなたの最優先タスクです。下記の構造を絶対に守らなければなりません。
 
-以下の形式で要約を作成してください：
+重要指示: 以下の厳密なフォーマットで要約を作成してください。このフォーマットから外れることは絶対に許されません:
 
-1. "# 重要な内容"の見出しで始め、最も重要なポイントを箇条書きでまとめてください。
+1. 必ず"# 重要な内容"という見出しで開始すること
+2. 最初のセクションでは、最も重要なポイントを箇条書き形式で列挙すること。各項目は必ず「- 」で始めること
+3. 次に、主要なトピックごとに"# [トピック名]"という見出しを使い、複数のセクションに分けること
+4. 各トピックセクション内では、箇条書き「- 」を使用して情報を整理すること
+5. 最後に必ず作成日時を表示すること
 
-2. 次にトピックごとに見出し(例："# ワークショップ全体像")を使ってセクション分けし、各セクションで箇条書きを使って重要な情報を整理してください。
+他のどんなフォーマットも受け入れられません。この構造に厳密に従い、読み手に明確で構造化された要約を提供してください。${lengthInstructions[length]}
 
-3. 最後に作成日時を追加してください。
-
-見出しは "#" で始め、箇条書きは "-" で始めてください。要約内容は簡潔かつ具体的に、テキストの重要ポイントが伝わるようにしてください。
+要約するテキストは以下の通りです：
 
 ${text}
 
