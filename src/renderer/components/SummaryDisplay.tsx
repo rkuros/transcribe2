@@ -1,0 +1,134 @@
+import React, { useState } from 'react';
+import { SummarizationLength, SummarizationOptions } from '../../common/types';
+
+interface SummaryDisplayProps {
+  original: string;
+  summary: string | null;
+  processingTime?: number;
+  onRequestSummary: (options: SummarizationOptions) => void;
+  isProcessing: boolean;
+}
+
+const SummaryDisplay: React.FC<SummaryDisplayProps> = ({
+  original,
+  summary,
+  processingTime,
+  onRequestSummary,
+  isProcessing
+}) => {
+  const [summaryLength, setSummaryLength] = useState<SummarizationLength>(SummarizationLength.MEDIUM);
+  const [model, setModel] = useState<string>("");
+  const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
+  const [maxTokens, setMaxTokens] = useState<number | undefined>(undefined);
+  const [temperature, setTemperature] = useState<number>(0.7);
+  
+  return (
+    <div className="summary-container">
+      <div className="flex flex-wrap items-center mb-4 gap-3">
+        <div>
+          <span className="text-sm">Strands Agentを使用して文字起こし結果の要約を生成</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <div>
+            <select 
+              value={summaryLength}
+              onChange={(e) => setSummaryLength(e.target.value as SummarizationLength)}
+              className="rounded-md border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm py-1 bg-gray-800 text-gray-100"
+              disabled={isProcessing}
+            >
+              <option value={SummarizationLength.SHORT}>簡潔 (短)</option>
+              <option value={SummarizationLength.MEDIUM}>標準</option>
+              <option value={SummarizationLength.LONG}>詳細 (長)</option>
+            </select>
+          </div>
+          
+          <button
+            className="btn-primary"
+            onClick={() => onRequestSummary({
+              summarizationLength: summaryLength,
+              model: model || undefined,
+              maxTokens: maxTokens,
+              temperature: temperature
+            })}
+            disabled={isProcessing}
+          >
+            {isProcessing ? '処理中...' : '要約を生成'}
+          </button>
+          
+          <button
+            className="btn-link text-xs"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            disabled={isProcessing}
+          >
+            {showAdvanced ? '詳細設定を隠す' : '詳細設定を表示'}
+          </button>
+        </div>
+      </div>
+      
+      {showAdvanced && (
+        <div className="mb-4 p-3 bg-gray-700 rounded-lg">
+          <h4 className="font-medium mb-2 text-gray-100">詳細設定</h4>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="model-id" className="block text-sm font-medium text-gray-200 mb-1">モデルID</label>
+              <input
+                type="text"
+                id="model-id"
+                className="block w-full rounded-md border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm py-1 bg-gray-800 text-gray-100"
+                placeholder="例: us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                disabled={isProcessing}
+              />
+              <p className="text-xs text-gray-400 mt-1">空欄の場合はデフォルトモデルを使用</p>
+            </div>
+            <div>
+              <label htmlFor="max-tokens" className="block text-sm font-medium text-gray-200 mb-1">最大トークン数</label>
+              <input
+                type="number"
+                id="max-tokens"
+                className="block w-full rounded-md border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm py-1 bg-gray-800 text-gray-100"
+                placeholder="例: 1600"
+                value={maxTokens === undefined ? '' : maxTokens}
+                onChange={(e) => setMaxTokens(e.target.value ? parseInt(e.target.value) : undefined)}
+                disabled={isProcessing}
+                min="100"
+                max="4000"
+              />
+              <p className="text-xs text-gray-400 mt-1">空欄の場合はデフォルト値を使用</p>
+            </div>
+            <div className="col-span-2">
+              <label htmlFor="temperature" className="block text-sm font-medium text-gray-200 mb-1">温度パラメーター: {temperature.toFixed(1)}</label>
+              <input
+                type="range"
+                id="temperature"
+                className="block w-full rounded-md border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm py-1 bg-gray-800"
+                value={temperature}
+                onChange={(e) => setTemperature(parseFloat(e.target.value))}
+                disabled={isProcessing}
+                min="0"
+                max="1"
+                step="0.1"
+              />
+              <p className="text-xs text-gray-400 mt-1">低い値 (0に近い) = より確実な回答、高い値 (1に近い) = より多様な回答</p>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {summary && (
+        <div className="bg-gray-700 p-4 rounded-lg">
+          <div className="mb-2 text-sm text-gray-300">
+            {processingTime && <span>処理時間: {processingTime.toFixed(2)} 秒 | </span>}
+            <span>要約率: {Math.round((summary.length / original.length) * 100)}%</span>
+          </div>
+          <div className="whitespace-pre-wrap text-gray-100">
+            {summary}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default SummaryDisplay;

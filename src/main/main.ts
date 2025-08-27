@@ -5,9 +5,10 @@ import { ElectronFileManager } from './file-manager';
 import { SettingsManager } from './settings-manager';
 import { PythonAudioProcessingManager } from './audio-processing-manager';
 import { AWSAudioProcessingManager } from './aws-audio-processing-manager';
+import { StrandsAgentManager } from './strands-agent-manager';
 import { ExportService } from './export-service';
 import { Logger } from './logger';
-import { ExportFormat, WhisperModel } from '../common/types';
+import { ExportFormat, SummarizationLength, WhisperModel } from '../common/types';
 import { AppError, ErrorCategory, categorizeError } from '../common/error-utils';
 
 // Keep a global reference of the window object to avoid it being garbage collected
@@ -89,6 +90,7 @@ let fileManager: ElectronFileManager;
 let settingsManager: SettingsManager;
 let pythonAudioProcessingManager: PythonAudioProcessingManager;
 let awsAudioProcessingManager: AWSAudioProcessingManager | null = null;
+let strandsAgentManager: StrandsAgentManager | null = null;
 let exportService: ExportService;
 let logger: Logger;
 let isSetupComplete = false;
@@ -243,6 +245,180 @@ function setupIpcHandlers() {
     }
   });
   
+  // 要約処理エンドポイント
+  ipcMain.handle('summarize-transcription', async (_event, text: string, options: any) => {
+    try {
+      logger.info(`Starting summarization`, { textLength: text.length });
+      
+      // StrandsAgentManagerを使用して要約
+      if (!strandsAgentManager && mainWindow) {
+        logger.info('Initializing StrandsAgentManager');
+        strandsAgentManager = new StrandsAgentManager(mainWindow);
+      }
+
+      if (strandsAgentManager) {
+        try {
+          // StrandsAgentManagerを使用して要約
+          logger.info('Using StrandsAgentManager for summarization');
+          const result = await strandsAgentManager.summarizeText(text, {
+            length: options.summarizationLength || SummarizationLength.MEDIUM
+          });
+
+          logger.info(`Successfully summarized text with StrandsAgentManager`, { 
+            textLength: text.length,
+            summaryLength: result.summary?.length || 0,
+            processingTime: result.processingTime,
+            modelUsed: result.modelUsed
+          });
+
+          return result;
+        } catch (agentError) {
+          logger.error('StrandsAgentManager summarization failed', agentError);
+          logger.info('Falling back to wrapper script method');
+          // StrandsAgentManagerが失敗した場合はラッパースクリプト方式にフォールバック
+        }
+      }
+
+      // フォールバック: 従来のラッパースクリプト方式
+      logger.info('Using wrapper script for summarization');
+      // 要約スクリプトのパスを確認
+      const wrapperScriptPath = '/Users/rkuros/bin/strands-summarize.sh';
+      const fs = require('fs');
+      if (!fs.existsSync(wrapperScriptPath)) {
+        throw new Error(`要約ラッパースクリプトが見つかりません: ${wrapperScriptPath}`);
+      }
+      
+      // 一時ファイルに書き出す
+      const tmpDir = path.join(__dirname, '..', '..', 'temp');
+      if (!fs.existsSync(tmpDir)) {
+        fs.mkdirSync(tmpDir, { recursive: true });
+      }
+      
+      const tmpFile = path.join(tmpDir, `text_to_summarize_${Date.now()}.txt`);
+      fs.writeFileSync(tmpFile, text, 'utf8');
+      
+      // シェルスクリプトを直接実行
+      const { spawn } = require('child_process');
+      
+      // コマンドライン引数を準備
+      let args = [
+        '--file', tmpFile,
+        '--length', options.summarizationLength || SummarizationLength.MEDIUM,
+        '--timeout', '600'
+      ];
+      
+      // モデルが指定されている場合は追加
+      if (options.model) {
+        args.push('--model', options.model);
+      }
+      
+      // モデルパラメーターが指定されている場合は追加
+      if (options.maxTokens) {
+        args.push('--max-tokens', options.maxTokens.toString());
+      }
+      
+      if (options.temperature !== undefined) {
+        args.push('--temperature', options.temperature.toString());
+      }
+      
+      // シェルスクリプトを実行（コマンドとして実行）
+      const result = await new Promise<{stdout: string, stderr: string, exitCode: number}>((resolve, reject) => {
+        try {
+          const cmdArgs = ['-c', `${wrapperScriptPath} ${args.join(' ')}`];
+          console.log('Executing wrapper script as command:', '/bin/bash', cmdArgs);
+          
+          const process = spawn('/bin/bash', cmdArgs);
+          
+          let stdout = '';
+          let stderr = '';
+
+          process.stdout.on('data', (data: Buffer) => {
+            const str = data.toString();
+            stdout += str;
+            console.log('STDOUT:', str);
+          });
+
+          process.stderr.on('data', (data: Buffer) => {
+            const str = data.toString();
+            stderr += str;
+            console.error('STDERR from wrapper:', str);
+          });
+
+          process.on('close', (code: number) => {
+            console.log('Process completed with code:', code);
+            
+            // 一時ファイルを削除
+            try {
+              fs.unlinkSync(tmpFile);
+              console.log('Temporary file deleted:', tmpFile);
+            } catch (e) {
+              console.warn('一時ファイルの削除に失敗:', e);
+            }
+            
+            if (code !== 0) {
+              console.error(`Process exited with code ${code}`);
+              console.error(`STDERR: ${stderr}`);
+              reject(new Error(`Process failed with code ${code}: ${stderr}`));
+            } else {
+              resolve({
+                stdout: stdout,
+                stderr: stderr,
+                exitCode: code || 0
+              });
+            }
+          });
+
+          process.on('error', (error: Error) => {
+            console.error('Process error:', error);
+            
+            // エラー時も一時ファイルを削除
+            try {
+              fs.unlinkSync(tmpFile);
+              console.log('Temporary file deleted after error:', tmpFile);
+            } catch (e) {
+              console.warn('一時ファイルの削除に失敗:', e);
+            }
+            
+            reject(new Error(`Failed to start process: ${error.message}`));
+          });
+        } catch (error) {
+          console.error('Exception during spawn:', error);
+          
+          // 例外時も一時ファイルを削除
+          try {
+            fs.unlinkSync(tmpFile);
+            console.log('Temporary file deleted after exception:', tmpFile);
+          } catch (e) {
+            console.warn('一時ファイルの削除に失敗:', e);
+          }
+          
+          reject(error);
+        }
+      });
+      
+      // JSON解析
+      let jsonResult;
+      try {
+        jsonResult = JSON.parse(result.stdout);
+      } catch (e) {
+        console.error('要約結果のJSON解析エラー:', e);
+        throw new Error(`要約結果の解析に失敗しました: ${result.stdout}`);
+      }
+      
+      logger.info(`Successfully summarized text with wrapper script`, { 
+        textLength: text.length,
+        summaryLength: jsonResult.summary?.length || 0,
+        processingTime: jsonResult.processingTime 
+      });
+      
+      return jsonResult;
+    } catch (error) {
+      const appError = categorizeError(error);
+      logger.error(appError, { textLength: text?.length });
+      throw appError;
+    }
+  });
+  
   ipcMain.handle('separate-audio', async (_event, filePath: string) => {
     // Always use Python manager for audio separation
     return pythonAudioProcessingManager.separateAudio(filePath);
@@ -274,6 +450,8 @@ function setupIpcHandlers() {
       // Start with Python dependencies
       const pythonDeps = await pythonAudioProcessingManager.checkDependencies();
       
+      let combinedDeps = {...pythonDeps};
+      
       // Try to check AWS dependencies, but don't fail if AWS checking fails
       try {
         if (!awsAudioProcessingManager && mainWindow) {
@@ -283,31 +461,57 @@ function setupIpcHandlers() {
           const awsDeps = await awsAudioProcessingManager.checkDependencies();
           
           // Merge the dependency information
-          const combinedDeps = {
-            ...pythonDeps,
+          combinedDeps = {
+            ...combinedDeps,
             awsTranscribe: awsDeps.awsTranscribe,
             models: {
-              ...pythonDeps.models,
+              ...combinedDeps.models,
               ...awsDeps.models
             },
             details: {
-              ...pythonDeps.details,
+              ...combinedDeps.details,
               awsTranscribe: awsDeps.details?.awsTranscribe,
               models: {
-                ...pythonDeps.details?.models,
+                ...combinedDeps.details?.models,
                 ...awsDeps.details?.models
               }
             }
           };
-          logger.info('Dependency check completed', combinedDeps);
-          return combinedDeps;
         }
       } catch (e) {
         console.warn('Failed to check AWS dependencies:', e);
       }
       
-      logger.info('Dependency check completed', pythonDeps);
-      return pythonDeps;
+      // Try to check Strands Agent dependencies, but don't fail if checking fails
+      try {
+        if (!strandsAgentManager && mainWindow) {
+          strandsAgentManager = new StrandsAgentManager(mainWindow);
+        }
+        
+        if (strandsAgentManager) {
+          const strandsDeps = await strandsAgentManager.checkDependencies();
+          
+          // Merge the dependency information
+          if (strandsDeps.bedrockAgent) {
+            combinedDeps.bedrockAgent = strandsDeps.bedrockAgent;
+          }
+          if (strandsDeps.strandsAgent) {
+            combinedDeps.strandsAgent = strandsDeps.strandsAgent;
+          }
+          if (strandsDeps.details) {
+            if (!combinedDeps.details) {
+              combinedDeps.details = {};
+            }
+            combinedDeps.details.bedrockAgent = strandsDeps.details;
+            combinedDeps.details.strandsAgent = strandsDeps.details;
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to check Strands Agent dependencies:', e);
+      }
+      
+      logger.info('Dependency check completed', combinedDeps);
+      return combinedDeps;
     } catch (error) {
       const appError = categorizeError(error);
       logger.error(appError);

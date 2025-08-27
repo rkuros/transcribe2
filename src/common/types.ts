@@ -19,16 +19,26 @@ export enum ExportFormat {
   SRT = 'srt'
 }
 
+export enum SummarizationLength {
+  SHORT = 'short',
+  MEDIUM = 'medium',
+  LONG = 'long'
+}
+
 export interface ProcessingOptions {
   model: WhisperModel;
   enableAudioSeparation: boolean;
   enableAutoFormatting?: boolean;
   enableGinzaFormatting?: boolean;
+  enableSummarization?: boolean;
+  summarizationLength?: SummarizationLength;
   outputFormat?: ExportFormat;
   language?: string;
   awsRegion?: string;
   awsVocabulary?: string;
   awsCustomVocabularyName?: string;
+  agentId?: string;
+  agentAliasId?: string;
 }
 
 export interface AudioMetadata {
@@ -62,6 +72,8 @@ export interface DependencyStatus {
   fasterWhisper: boolean;
   openaiWhisper: boolean;
   awsTranscribe?: boolean;
+  bedrockAgent?: boolean;
+  strandsAgent?: boolean;
   models: {
     [key: string]: boolean;
   };
@@ -71,6 +83,8 @@ export interface DependencyStatus {
     fasterWhisper?: any;
     openaiWhisper?: any;
     awsTranscribe?: any;
+    bedrockAgent?: any;
+    strandsAgent?: any;
     models?: {
       [key: string]: any;
     };
@@ -79,12 +93,27 @@ export interface DependencyStatus {
 }
 
 export interface ProgressStatus {
-  stage: 'separation' | 'transcription' | 'formatting' | 'complete';
+  stage: 'separation' | 'transcription' | 'formatting' | 'summarization' | 'complete';
   percent: number;
   estimatedTimeRemaining?: number;
+  message?: string;
 }
 
 export interface FormattingOptions {
   autoFormat: boolean;
   language: string;
+}
+
+export interface SummarizationOptions {
+  summarizationLength?: SummarizationLength;
+  model?: string;
+  maxTokens?: number;
+  temperature?: number;
+}
+
+export interface SummarizationResult {
+  originalText: string;
+  summary: string;
+  processingTime: number;
+  modelUsed: string;
 }

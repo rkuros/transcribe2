@@ -7,6 +7,7 @@ Macで動作するローカル音声文字起こしアプリケーション。De
 - **音声分離**: Demucsを使用して音声ファイルからボーカルトラックを抽出
 - **複数の文字起こしモデル**: faster-whisper small/medium、OpenAI Whisper large-v3-turbo、AWS Transcribe から選択可能
 - **テキスト編集**: 文字起こし結果を編集・フォーマット可能
+- **要約機能**: AWS Bedrockを使用して文字起こしテキストを自動要約
 - **複数フォーマットでのエクスポート**: テキスト(.txt)、Word文書(.docx)、字幕(.srt)
 - **ハイブリッド処理**: ローカルまたはクラウド処理を選択可能（Whisper = ローカル、AWS Transcribe = クラウド）
 
@@ -118,6 +119,7 @@ npm run package
 - [開発ガイド](docs/development.md) - 開発環境とGitリポジトリの管理（開発者向け）
 - [GiNZAフォーマット機能](docs/GINZA_FORMATTING.md) - テキスト整形の技術詳細
 - [AWS Transcribeの利用](docs/AWS_TRANSCRIBE.md) - AWS Transcribeの設定と使用方法
+- [AWS Bedrock要約機能](docs/AWS_BEDROCK.md) - AWS Bedrockを使用したテキスト要約機能
 
 ## クイックスタート
 
@@ -131,6 +133,7 @@ npm run package
 4. Demucsをインストール: `pip install demucs`
 5. Whisperをインストール: `pip install faster-whisper` または `pip install openai-whisper`
 6. AWSモデルを使用する場合: `pip install boto3 awscli`
+7. AWS Bedrockを使用する場合: `npm install @aws-sdk/client-bedrock-runtime @aws-sdk/client-bedrock-agent-runtime`
 
 ### 一般的な問題と解決方法
 
@@ -155,5 +158,7 @@ pip install torch==2.2.0 torchaudio==2.2.0
 - [faster-whisper](https://github.com/guillaumekln/faster-whisper) - WhisperのCUDA実装
 - [OpenAI Whisper](https://github.com/openai/whisper) - OpenAIによる音声認識システム
 - [AWS Transcribe](https://aws.amazon.com/jp/transcribe/) - AWSによる高精度音声認識サービス
+- [AWS Bedrock](https://aws.amazon.com/jp/bedrock/) - AWSの生成型AIサービス
 - [GiNZA](https://megagonlabs.github.io/ginza/) - 日本語NLPライブラリ
 - [Electron](https://www.electronjs.org/) - デスクトップアプリケーションフレームワーク
+- [Claude](https://www.anthropic.com/claude) - AnthropicによるAIモデル
