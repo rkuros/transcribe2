@@ -155,7 +155,7 @@ const SummaryDisplay: React.FC<SummaryDisplayProps> = ({
                   </button>
                   
                   <button
-                    className="btn-success text-base py-2 px-6 flex items-center gap-2"
+                    className="btn-primary text-base py-3 px-8 flex items-center gap-2 shadow-lg"
                     onClick={() => onRequestWeeklyReport && onRequestWeeklyReport({
                       customerName: customerName || 'Unknown Customer',
                       opportunityName,
@@ -165,6 +165,7 @@ const SummaryDisplay: React.FC<SummaryDisplayProps> = ({
                       temperature: temperature
                     })}
                     disabled={isProcessing || !onRequestWeeklyReport || !customerName}
+                    style={{ backgroundColor: '#8B5CF6', borderColor: '#7C3AED' }}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
