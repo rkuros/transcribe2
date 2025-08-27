@@ -572,40 +572,63 @@ const AppContent: React.FC = () => {
               </div>
               
               <div className="flex-1 border-l border-gray-700 pl-4">
-                <h4 className="font-medium mb-2">顧客情報 (Weekly Report用)</h4>
-                <div className="grid grid-cols-1 gap-2">
-                  <div>
-                    <label htmlFor="customer-name" className="block text-sm font-medium text-gray-400 mb-1">顧客名:</label>
-                    <input 
-                      id="customer-name" 
-                      type="text" 
-                      className="block w-full rounded-md border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm py-1 bg-gray-800 text-gray-100"
-                      placeholder="例: AWS Japan"
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                    />
+                <div className="flex items-center gap-2 mb-3">
+                  <h4 className="font-medium">Weekly Report用顧客情報</h4>
+                  <div className="px-2 py-1 bg-green-600 text-xs text-white rounded-full">必須入力</div>
+                </div>
+                
+                <div className="p-3 bg-gray-700 rounded-lg">
+                  <div className="grid grid-cols-1 gap-3">
+                    <div>
+                      <label htmlFor="customer-name" className="flex items-center text-sm font-medium text-gray-200 mb-1">
+                        顧客名
+                        <span className="text-red-400 ml-1">*</span>
+                        <span className="text-xs text-gray-400 ml-2">（必須）</span>
+                      </label>
+                      <input 
+                        id="customer-name" 
+                        type="text" 
+                        className="block w-full rounded-md border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm py-2 bg-gray-800 text-gray-100"
+                        placeholder="例: AWS Japan"
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="opportunity-name" className="block text-sm font-medium text-gray-200 mb-1">
+                        案件名
+                        <span className="text-xs text-gray-400 ml-2">（任意）</span>
+                      </label>
+                      <input 
+                        id="opportunity-name" 
+                        type="text" 
+                        className="block w-full rounded-md border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm py-2 bg-gray-800 text-gray-100"
+                        placeholder="例: Bedrock POC"
+                        value={opportunityName}
+                        onChange={(e) => setOpportunityName(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="opportunity-size" className="block text-sm font-medium text-gray-200 mb-1">
+                        規模 (ARR/MRR)
+                        <span className="text-xs text-gray-400 ml-2">（任意）</span>
+                      </label>
+                      <input 
+                        id="opportunity-size" 
+                        type="text" 
+                        className="block w-full rounded-md border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm py-2 bg-gray-800 text-gray-100"
+                        placeholder="例: ARR $50k"
+                        value={opportunitySize}
+                        onChange={(e) => setOpportunitySize(e.target.value)}
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label htmlFor="opportunity-name" className="block text-sm font-medium text-gray-400 mb-1">案件名:</label>
-                    <input 
-                      id="opportunity-name" 
-                      type="text" 
-                      className="block w-full rounded-md border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm py-1 bg-gray-800 text-gray-100"
-                      placeholder="例: Bedrock POC"
-                      value={opportunityName}
-                      onChange={(e) => setOpportunityName(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="opportunity-size" className="block text-sm font-medium text-gray-400 mb-1">規模 (ARR/MRR):</label>
-                    <input 
-                      id="opportunity-size" 
-                      type="text" 
-                      className="block w-full rounded-md border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm py-1 bg-gray-800 text-gray-100"
-                      placeholder="例: ARR $50k"
-                      value={opportunitySize}
-                      onChange={(e) => setOpportunitySize(e.target.value)}
-                    />
+                  
+                  <div className="mt-3 text-xs text-amber-400 flex items-start gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>これらの情報はWeekly Report生成時に使用されます。Weekly Reportを生成する場合は、少なくとも顧客名を入力してください。</span>
                   </div>
                 </div>
               </div>
@@ -622,7 +645,7 @@ const AppContent: React.FC = () => {
           {/* 要約・Weekly Reportセクション */}
           <div className="mt-4 mb-4 border-t border-gray-700 pt-4">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium">テキスト要約 / Weekly Report</h3>
+              <h3 className="text-lg font-medium">4. テキスト要約 / Weekly Report生成</h3>
               <div>
                 <span className="text-sm text-gray-400">Amazon Bedrockで文字起こし内容を処理</span>
               </div>

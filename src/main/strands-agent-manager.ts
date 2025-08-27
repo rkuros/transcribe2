@@ -477,7 +477,7 @@ ${text}
       const payload = {
         anthropic_version: "bedrock-2023-05-31",
         max_tokens: options.maxTokens || 4096,
-        temperature: options.temperature || 0,
+        temperature: options.temperature ?? 0,
         messages: [
           {
             role: "user",

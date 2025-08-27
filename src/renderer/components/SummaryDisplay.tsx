@@ -32,7 +32,7 @@ const SummaryDisplay: React.FC<SummaryDisplayProps> = ({
   const [model, setModel] = useState<string>("");
   const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
   const [maxTokens, setMaxTokens] = useState<number | undefined>(undefined);
-  const [temperature, setTemperature] = useState<number>(0.7);
+  const [temperature, setTemperature] = useState<number>(0);
   const [activeTab, setActiveTab] = useState<'summary' | 'weekly'>('summary');
   
   return (
@@ -100,63 +100,88 @@ const SummaryDisplay: React.FC<SummaryDisplayProps> = ({
         )}
         
         {activeTab === 'weekly' && (
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-col gap-4">
             <div>
-              <span className="text-sm">文字起こし結果からWeekly Reportを生成</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <input
-                    type="text"
-                    className="block w-full rounded-md border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm py-1 bg-gray-800 text-gray-100"
-                    placeholder="顧客名"
-                    value={customerName || ''}
-                    disabled={true}
-                  />
+              <div className="flex justify-between items-center mb-2">
+                <h4 className="font-medium text-gray-100">Weekly Report 設定</h4>
+                <span className="text-sm text-gray-400">文字起こし結果からWeekly Reportを生成</span>
+              </div>
+              
+              <div className="bg-gray-700 p-4 rounded-lg">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">顧客名 <span className="text-red-400">*</span></label>
+                    <input
+                      type="text"
+                      className="block w-full rounded-md border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm py-2 bg-gray-800 text-gray-100"
+                      placeholder="例: AWS Japan"
+                      value={customerName || ''}
+                      disabled={isProcessing}
+                      // 親コンポーネントでのみ編集可能なため、read-onlyにしています
+                      readOnly
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">案件名</label>
+                    <input
+                      type="text"
+                      className="block w-full rounded-md border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm py-2 bg-gray-800 text-gray-100"
+                      placeholder="例: Bedrock POC"
+                      value={opportunityName || ''}
+                      disabled={isProcessing}
+                      readOnly
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">規模 (ARR/MRR)</label>
+                    <input
+                      type="text"
+                      className="block w-full rounded-md border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm py-2 bg-gray-800 text-gray-100"
+                      placeholder="例: ARR $50k"
+                      value={opportunitySize || ''}
+                      disabled={isProcessing}
+                      readOnly
+                    />
+                  </div>
                 </div>
-                <div>
-                  <input
-                    type="text"
-                    className="block w-full rounded-md border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm py-1 bg-gray-800 text-gray-100"
-                    placeholder="案件名"
-                    value={opportunityName || ''}
-                    disabled={true}
-                  />
-                </div>
-                <div>
-                  <input
-                    type="text"
-                    className="block w-full rounded-md border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm py-1 bg-gray-800 text-gray-100"
-                    placeholder="規模 (ARR/MRR)"
-                    value={opportunitySize || ''}
-                    disabled={true}
-                  />
+                
+                <div className="flex justify-between items-center">
+                  <button
+                    className="btn-link text-xs"
+                    onClick={() => setShowAdvanced(!showAdvanced)}
+                    disabled={isProcessing}
+                  >
+                    {showAdvanced ? '詳細設定を隠す' : '詳細設定を表示'}
+                  </button>
+                  
+                  <button
+                    className="btn-success text-base py-2 px-6 flex items-center gap-2"
+                    onClick={() => onRequestWeeklyReport && onRequestWeeklyReport({
+                      customerName: customerName || 'Unknown Customer',
+                      opportunityName,
+                      opportunitySize,
+                      model: model || undefined,
+                      maxTokens: maxTokens,
+                      temperature: temperature
+                    })}
+                    disabled={isProcessing || !onRequestWeeklyReport || !customerName}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {isProcessing ? '処理中...' : 'Weekly Reportを生成'}
+                  </button>
                 </div>
               </div>
               
-              <button
-                className="btn-success"
-                onClick={() => onRequestWeeklyReport && onRequestWeeklyReport({
-                  customerName: customerName || 'Unknown Customer',
-                  opportunityName,
-                  opportunitySize,
-                  model: model || undefined,
-                  maxTokens: maxTokens,
-                  temperature: temperature
-                })}
-                disabled={isProcessing || !onRequestWeeklyReport}
-              >
-                {isProcessing ? '処理中...' : 'Weekly Reportを生成'}
-              </button>
-              
-              <button
-                className="btn-link text-xs"
-                onClick={() => setShowAdvanced(!showAdvanced)}
-                disabled={isProcessing}
-              >
-                {showAdvanced ? '詳細設定を隠す' : '詳細設定を表示'}
-              </button>
+              {!customerName && (
+                <div className="text-amber-400 text-sm mt-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  顧客情報を入力するには、画面上部の「3. 文字起こし結果」セクションで顧客名を入力してください
+                </div>
+              )}
             </div>
           </div>
         )}
