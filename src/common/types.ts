@@ -130,7 +130,7 @@ export interface WeeklyReportResult {
 }
 
 export interface WeeklyReportOptions {
-  customerName: string;
+  customerName?: string; // オプショナルに変更
   opportunityName?: string;
   opportunitySize?: string;
   model?: string;
