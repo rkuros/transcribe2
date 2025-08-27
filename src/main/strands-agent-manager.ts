@@ -221,13 +221,30 @@ export class StrandsAgentManager {
   
   // 長さに応じた要約プロンプトを生成
   private getSummarizationPrompt(text: string, length: SummarizationLength): string {
+    const now = new Date();
+    const formattedDate = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 ${now.getHours()}時${now.getMinutes()}分${now.getSeconds()}秒`;
+    
     const lengthInstructions = {
-      [SummarizationLength.SHORT]: '100-200語の簡潔な要約を作成してください。',
-      [SummarizationLength.MEDIUM]: '300-500語の要約を作成してください。重要なポイントをすべて含めてください。',
-      [SummarizationLength.LONG]: '700-1000語の詳細な要約を作成してください。重要な詳細をすべて含めてください。'
+      [SummarizationLength.SHORT]: '主要ポイントのみを簡潔にまとめた要約を作成してください。',
+      [SummarizationLength.MEDIUM]: '重要なトピックごとに整理した要約を作成してください。',
+      [SummarizationLength.LONG]: 'トピックごとに詳細に整理した要約を作成してください。重要な詳細をすべて含めてください。'
     };
     
-    return `以下のテキストを要約してください。${lengthInstructions[length]}\n\n${text}`;
+    return `以下のテキストを要約してください。${lengthInstructions[length]}
+
+以下の形式で要約を作成してください：
+
+1. "# 重要な内容"の見出しで始め、最も重要なポイントを箇条書きでまとめてください。
+
+2. 次にトピックごとに見出し(例："# ワークショップ全体像")を使ってセクション分けし、各セクションで箇条書きを使って重要な情報を整理してください。
+
+3. 最後に作成日時を追加してください。
+
+見出しは "#" で始め、箇条書きは "-" で始めてください。要約内容は簡潔かつ具体的に、テキストの重要ポイントが伝わるようにしてください。
+
+${text}
+
+（作成日時：${formattedDate}）`;
   }
 
   // 利用可能なエージェント情報を取得
