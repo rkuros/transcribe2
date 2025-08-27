@@ -13,6 +13,9 @@ interface SummaryDisplayProps {
   customerName?: string;
   opportunityName?: string;
   opportunitySize?: string;
+  onCustomerNameChange?: (value: string) => void;
+  onOpportunityNameChange?: (value: string) => void;
+  onOpportunitySizeChange?: (value: string) => void;
 }
 
 const SummaryDisplay: React.FC<SummaryDisplayProps> = ({
@@ -26,7 +29,10 @@ const SummaryDisplay: React.FC<SummaryDisplayProps> = ({
   isProcessing,
   customerName,
   opportunityName,
-  opportunitySize
+  opportunitySize,
+  onCustomerNameChange,
+  onOpportunityNameChange,
+  onOpportunitySizeChange
 }) => {
   const [summaryLength, setSummaryLength] = useState<SummarizationLength>(SummarizationLength.MEDIUM);
   const [model, setModel] = useState<string>("");
@@ -116,9 +122,8 @@ const SummaryDisplay: React.FC<SummaryDisplayProps> = ({
                       className="block w-full rounded-md border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm py-2 bg-gray-800 text-gray-100"
                       placeholder="例: AWS Japan"
                       value={customerName || ''}
+                      onChange={(e) => onCustomerNameChange && onCustomerNameChange(e.target.value)}
                       disabled={isProcessing}
-                      // 親コンポーネントでのみ編集可能なため、read-onlyにしています
-                      readOnly
                     />
                   </div>
                   <div>
@@ -128,8 +133,8 @@ const SummaryDisplay: React.FC<SummaryDisplayProps> = ({
                       className="block w-full rounded-md border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm py-2 bg-gray-800 text-gray-100"
                       placeholder="例: Bedrock POC"
                       value={opportunityName || ''}
+                      onChange={(e) => onOpportunityNameChange && onOpportunityNameChange(e.target.value)}
                       disabled={isProcessing}
-                      readOnly
                     />
                   </div>
                   <div>
@@ -139,8 +144,8 @@ const SummaryDisplay: React.FC<SummaryDisplayProps> = ({
                       className="block w-full rounded-md border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm py-2 bg-gray-800 text-gray-100"
                       placeholder="例: ARR $50k"
                       value={opportunitySize || ''}
+                      onChange={(e) => onOpportunitySizeChange && onOpportunitySizeChange(e.target.value)}
                       disabled={isProcessing}
-                      readOnly
                     />
                   </div>
                 </div>

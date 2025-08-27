@@ -8,6 +8,7 @@ Macで動作するローカル音声文字起こしアプリケーション。De
 - **複数の文字起こしモデル**: faster-whisper small/medium、OpenAI Whisper large-v3-turbo、AWS Transcribe から選択可能
 - **テキスト編集**: 文字起こし結果を編集・フォーマット可能
 - **要約機能**: AWS Bedrockを使用して文字起こしテキストを自動要約
+- **Weekly Report生成**: Claude 3.7 Sonnetを使用して会話内容から構造化されたWeekly Reportを生成
 - **複数フォーマットでのエクスポート**: テキスト(.txt)、Word文書(.docx)、字幕(.srt)
 - **ハイブリッド処理**: ローカルまたはクラウド処理を選択可能（Whisper = ローカル、AWS Transcribe = クラウド）
 
@@ -120,6 +121,7 @@ npm run package
 - [GiNZAフォーマット機能](docs/GINZA_FORMATTING.md) - テキスト整形の技術詳細
 - [AWS Transcribeの利用](docs/AWS_TRANSCRIBE.md) - AWS Transcribeの設定と使用方法
 - [AWS Bedrock要約機能](docs/AWS_BEDROCK.md) - AWS Bedrockを使用したテキスト要約機能
+- [Weekly Report生成機能](docs/WEEKLY_REPORT.md) - Claude 3.7 Sonnetを使用した構造化されたWeekly Report生成機能
 
 ## クイックスタート
 

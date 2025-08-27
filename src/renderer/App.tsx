@@ -571,44 +571,6 @@ const AppContent: React.FC = () => {
                 )}
               </div>
               
-              <div className="flex-1 border-l border-gray-700 pl-4">
-                <h4 className="font-medium mb-2">顧客情報 (Weekly Report用)</h4>
-                <div className="grid grid-cols-1 gap-2">
-                  <div>
-                    <label htmlFor="customer-name" className="block text-sm font-medium text-gray-400 mb-1">顧客名:</label>
-                    <input 
-                      id="customer-name" 
-                      type="text" 
-                      className="block w-full rounded-md border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm py-1 bg-gray-800 text-gray-100"
-                      placeholder="例: AWS Japan"
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="opportunity-name" className="block text-sm font-medium text-gray-400 mb-1">案件名:</label>
-                    <input 
-                      id="opportunity-name" 
-                      type="text" 
-                      className="block w-full rounded-md border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm py-1 bg-gray-800 text-gray-100"
-                      placeholder="例: Bedrock POC"
-                      value={opportunityName}
-                      onChange={(e) => setOpportunityName(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="opportunity-size" className="block text-sm font-medium text-gray-400 mb-1">規模 (ARR/MRR):</label>
-                    <input 
-                      id="opportunity-size" 
-                      type="text" 
-                      className="block w-full rounded-md border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm py-1 bg-gray-800 text-gray-100"
-                      placeholder="例: ARR $50k"
-                      value={opportunitySize}
-                      onChange={(e) => setOpportunitySize(e.target.value)}
-                    />
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
           
@@ -639,6 +601,9 @@ const AppContent: React.FC = () => {
               customerName={customerName}
               opportunityName={opportunityName}
               opportunitySize={opportunitySize}
+              onCustomerNameChange={(value) => setCustomerName(value)}
+              onOpportunityNameChange={(value) => setOpportunityName(value)}
+              onOpportunitySizeChange={(value) => setOpportunitySize(value)}
             />
           </div>
           
