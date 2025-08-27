@@ -31,6 +31,7 @@ export interface ProcessingOptions {
   enableAutoFormatting?: boolean;
   enableGinzaFormatting?: boolean;
   enableSummarization?: boolean;
+  enableWeeklyReport?: boolean;
   summarizationLength?: SummarizationLength;
   outputFormat?: ExportFormat;
   language?: string;
@@ -39,6 +40,9 @@ export interface ProcessingOptions {
   awsCustomVocabularyName?: string;
   agentId?: string;
   agentAliasId?: string;
+  customerName?: string;
+  opportunityName?: string;
+  opportunitySize?: string;
 }
 
 export interface AudioMetadata {
@@ -116,4 +120,20 @@ export interface SummarizationResult {
   summary: string;
   processingTime: number;
   modelUsed: string;
+}
+
+export interface WeeklyReportResult {
+  originalText: string;
+  report: string;
+  processingTime: number;
+  modelUsed: string;
+}
+
+export interface WeeklyReportOptions {
+  customerName: string;
+  opportunityName?: string;
+  opportunitySize?: string;
+  model?: string;
+  maxTokens?: number;
+  temperature?: number;
 }

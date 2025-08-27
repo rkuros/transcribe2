@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { WhisperModel } from '../common/types';
+import { WhisperModel, SummarizationLength, WeeklyReportOptions } from '../common/types';
 
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
@@ -30,6 +30,12 @@ contextBridge.exposeInMainWorld('api', {
   
   // Logger-related methods
   getLogPath: () => ipcRenderer.invoke('get-log-path'),
+  
+  // 要約関連メソッド
+  summarizeTranscription: (text: string, options: any) => ipcRenderer.invoke('summarize-transcription', text, options),
+  
+  // Weekly Report関連メソッド
+  createWeeklyReport: (text: string, options: WeeklyReportOptions) => ipcRenderer.invoke('create-weekly-report', text, options),
   
   // Error handling
   onPythonError: (callback: (error: any) => void) => ipcRenderer.on('python-error', (_event, error) => callback(error)),

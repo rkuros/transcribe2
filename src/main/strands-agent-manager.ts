@@ -5,7 +5,7 @@ import {
 } from '@aws-sdk/client-bedrock-agent-runtime';
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import { fromIni } from '@aws-sdk/credential-providers';
-import { SummarizationLength, SummarizationResult } from '../common/types';
+import { SummarizationLength, SummarizationResult, WeeklyReportOptions, WeeklyReportResult } from '../common/types';
 import { v4 as uuidv4 } from 'uuid';
 
 export class StrandsAgentManager {
@@ -357,6 +357,226 @@ ${text}
     };
   }
   
+  // Weekly Reportプロンプトの生成
+  private getWeeklyReportPrompt(text: string, options: WeeklyReportOptions): string {
+    const now = new Date();
+    const formattedDate = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 ${now.getHours()}時${now.getMinutes()}分${now.getSeconds()}秒`;
+    
+    // 顧客名とOpportunity情報を抽出
+    const customerName = options.customerName || '不明';
+    const opportunityName = options.opportunityName || '';
+    const opportunitySize = options.opportunitySize || '';
+    
+    // Opportunity情報があれば表示用に整形
+    let opportunityText = '';
+    if (opportunityName || opportunitySize) {
+      opportunityText = ' / ';
+      if (opportunityName) opportunityText += opportunityName;
+      if (opportunitySize) {
+        if (opportunityName) opportunityText += ' - ';
+        opportunityText += opportunitySize;
+      }
+    }
+    
+    return `あなたはプロフェッショナルなセールス・エンジニア（SE）です。文字起こしされた会話から、プロジェクトの週次報告書を作成してください。
+
+重要指示: 以下の厳密なフォーマットで週次報告書を作成してください。このフォーマットから外れることは絶対に許されません:
+
+# [顧客名${opportunityText}]
+${customerName}${opportunityText}
+
+# Action Taken（実施事項）
+- [ここにSEが実施した技術的なアクティビティを記載。どのような技術的支援、デモ、プレゼン、アーキテクチャ設計などを行ったかを具体的に]
+- [具体的な技術要素、製品名、バージョンなどを含める]
+- [可能であれば数値情報を含める（例：〇〇時間のワークショップ実施、✕✕のコンポーネント設計など）]
+
+# Observation（気づき）
+- [顧客の技術的な課題、ニーズ、反応について観察したこと]
+- [顧客の現状の技術スタックや課題に関する具体的な洞察]
+- [競合情報や技術的な懸念点があれば言及]
+
+# Next Step（次のステップ）
+- [次回までに実施すべき技術的なフォローアップ項目]
+- [必要な技術情報の提供や追加の検証など、具体的なアクション]
+- [デモや提案資料の準備など、具体的なタスク]
+
+# Ask（依頼・要望）
+- [営業担当へのサポート依頼や情報共有の要望]
+- [他部署との連携や追加リソースの要請などがあれば記載]
+
+他のどんなフォーマットも受け入れられません。この構造に厳密に従い、SEの視点から見た技術的な週次報告書を作成してください。以下のガイドラインに従ってください：
+
+1. ビジネスインパクトを明確に示す
+2. 個人名ではなく役職名を使用する
+3. 客観的で簡潔な文体を維持する
+4. 技術的な正確さを保つ
+5. 必要に応じて箇条書きを使用する
+
+対象となる文字起こしテキストは以下の通りです：
+
+${text}
+
+（作成日時：${formattedDate}）`;
+  }
+  
+  // 大きなテキストをWeekly Report用に処理するメソッド
+  private async processLargeTextForWeeklyReport(text: string, options: WeeklyReportOptions): Promise<WeeklyReportResult> {
+    const startTime = Date.now();
+    
+    // テキストが小さい場合は直接処理
+    if (text.length < 30000) {
+      return await this.createWeeklyReportWithBedrockDirect(text, options);
+    }
+    
+    console.log(`テキストが大きいため(${text.length}文字)、チャンク処理を適用します`);
+    
+    // テキストを複数のチャンクに分割
+    const chunks = this.splitTextIntoChunks(text, 25000);
+    const chunkSummaries: string[] = [];
+    
+    console.log(`テキストを${chunks.length}個のチャンクに分割しました`);
+    
+    // 各チャンクを処理
+    for (let i = 0; i < chunks.length; i++) {
+      console.log(`チャンク ${i+1}/${chunks.length} を処理中... (${chunks[i].length}文字)`);
+      
+      // 各チャンクは短めの要約として処理
+      const tmpOptions = { ...options };
+      const result = await this.createWeeklyReportWithBedrockDirect(
+        chunks[i], 
+        tmpOptions
+      );
+      chunkSummaries.push(result.report);
+    }
+    
+    console.log('すべてのチャンクの処理が完了しました。最終Weekly Reportを作成します');
+    
+    // すべてのチャンクの要約を結合して再処理
+    const combinedText = `以下は長い会話テキストを分割して処理した結果です。これらを統合して、一貫性のあるWeekly Reportを作成してください：\n\n${chunkSummaries.join("\n\n---\n\n")}`;
+    
+    const finalResult = await this.createWeeklyReportWithBedrockDirect(
+      combinedText, 
+      options
+    );
+    
+    const processingTime = (Date.now() - startTime) / 1000;
+    
+    return {
+      originalText: text,
+      report: finalResult.report,
+      processingTime: processingTime,
+      modelUsed: `${finalResult.modelUsed} (チャンク処理適用)`
+    };
+  }
+  
+  // Weekly Reportを直接Bedrockで生成
+  private async createWeeklyReportWithBedrockDirect(text: string, options: WeeklyReportOptions): Promise<WeeklyReportResult> {
+    if (!this.bedrockRuntimeClient) {
+      await this.initialize();
+    }
+    
+    const startTime = Date.now();
+    const promptTemplate = this.getWeeklyReportPrompt(text, options);
+    const modelId = options.model || this.modelId;
+    
+    try {
+      console.log(`Bedrockを直接呼び出してWeekly Reportを生成: モデルID=${modelId}`);
+      
+      // Claude 3.7 Sonnetのペイロード形式
+      const payload = {
+        anthropic_version: "bedrock-2023-05-31",
+        max_tokens: options.maxTokens || 4096,
+        temperature: options.temperature || 0,
+        messages: [
+          {
+            role: "user",
+            content: promptTemplate
+          }
+        ],
+        top_k: 250,
+        top_p: 1
+      };
+      
+      const command = new InvokeModelCommand({
+        modelId: modelId,
+        body: JSON.stringify(payload),
+        contentType: 'application/json'
+      });
+      
+      const response = await this.bedrockRuntimeClient!.send(command);
+      
+      // レスポンスをデコードして結果を抽出
+      const responseBody = new TextDecoder().decode(response.body);
+      const parsedResponse = JSON.parse(responseBody);
+      // Claude 3.7 Sonnet用のレスポンスフォーマット対応
+      const report = parsedResponse.content && parsedResponse.content[0] ? 
+                    parsedResponse.content[0].text : 
+                    (parsedResponse.completion || 'Weekly Reportの生成中にエラーが発生しました');
+      
+      const processingTime = (Date.now() - startTime) / 1000;
+      
+      return {
+        originalText: text,
+        report: report,
+        processingTime: processingTime,
+        modelUsed: `Amazon Bedrock (${modelId})`
+      };
+    } catch (error) {
+      console.error('Bedrock直接呼び出しエラー:', error);
+      throw error;
+    }
+  }
+  
+  // 文字起こしテキストからWeekly Reportを生成する
+  async createWeeklyReport(text: string, options: WeeklyReportOptions = {}): Promise<WeeklyReportResult> {
+    if (!this.bedrockAgentClient || !this.bedrockRuntimeClient) {
+      await this.initialize();
+    }
+
+    const startTime = Date.now();
+    const agentId = options.model ? '' : this.agentId; // モデルが指定されている場合はエージェント使用しない
+    const agentAliasId = options.model ? '' : this.agentAliasId;
+    
+    try {
+      // テキストサイズが大きい場合はチャンク処理
+      if (text.length > 30000) {
+        console.log(`大きなテキスト(${text.length}文字)のチャンク処理を開始します`);
+        return await this.processLargeTextForWeeklyReport(text, options);
+      }
+      
+      const promptTemplate = this.getWeeklyReportPrompt(text, options);
+      
+      // StrandsAgentが設定されており、モデルが明示的に指定されていない場合はStrandsAgentを使用
+      if (agentId && agentAliasId && !options.model) {
+        console.log('Strands Agentを使用してWeekly Reportを開始します');
+        try {
+          // Strands Agent を呼び出す
+          const response = await this.invokeStrandsAgent(agentId, agentAliasId, promptTemplate);
+          
+          const processingTime = (Date.now() - startTime) / 1000;
+          
+          return {
+            originalText: text,
+            report: response,
+            processingTime: processingTime,
+            modelUsed: `Amazon Bedrock Strands Agent (${agentId})`
+          };
+        } catch (agentError) {
+          console.error('Strands Agent呼び出しエラー:', agentError);
+          console.log('Bedrockの直接呼び出しにフォールバックします');
+          // エラーの場合はBedrockの直接呼び出しにフォールバック
+        }
+      }
+      
+      // Bedrock Runtimeを使って直接生成（フォールバックまたはデフォルト）
+      return await this.createWeeklyReportWithBedrockDirect(text, options);
+      
+    } catch (error) {
+      console.error('Weekly Report生成エラー:', error);
+      throw new Error(`Weekly Reportの生成に失敗しました: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
   // 依存関係とAWS認証情報の確認
   async checkDependencies() {
     try {

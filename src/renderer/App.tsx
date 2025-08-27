@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { WhisperModel, TranscriptionEngine, ProcessingOptions, TranscriptionResult, ProgressStatus, DependencyStatus, TranscriptionSegment, ExportFormat } from '../common/types';
+import { WhisperModel, TranscriptionEngine, ProcessingOptions, TranscriptionResult, ProgressStatus, DependencyStatus, TranscriptionSegment, ExportFormat, SummarizationLength, SummarizationResult, SummarizationOptions, WeeklyReportResult, WeeklyReportOptions } from '../common/types';
 import RecentFiles from './components/RecentFiles';
 import ProgressIndicator from './components/ProgressIndicator';
 import TranscriptionEditor from './components/TranscriptionEditor';
+import SummaryDisplay from './components/SummaryDisplay';
 import ExportOptions from './components/ExportOptions';
 import ErrorDisplay from './components/ErrorDisplay';
 import { NotificationProvider, useNotification } from './contexts/NotificationContext';
@@ -24,10 +25,18 @@ const AppContent: React.FC = () => {
   const [selectedModel, setSelectedModel] = useState<WhisperModel>(WhisperModel.FASTER_WHISPER_SMALL);
   const [enableSeparation, setEnableSeparation] = useState(true);
   const [enableGinza, setEnableGinza] = useState(true);
+  // 要約機能のチェックボックスは削除
   const [awsRegion, setAwsRegion] = useState<string>('ap-northeast-1'); // デフォルトは東京リージョン
   const [transcriptionResult, setTranscriptionResult] = useState<TranscriptionResult | null>(null);
   const [editedTranscription, setEditedTranscription] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isSummarizing, setIsSummarizing] = useState(false);
+  const [summaryResult, setSummaryResult] = useState<SummarizationResult | null>(null);
+  const [isGeneratingWeeklyReport, setIsGeneratingWeeklyReport] = useState(false);
+  const [weeklyReportResult, setWeeklyReportResult] = useState<WeeklyReportResult | null>(null);
+  const [customerName, setCustomerName] = useState<string>('');
+  const [opportunityName, setOpportunityName] = useState<string>('');
+  const [opportunitySize, setOpportunitySize] = useState<string>('');
   const [progress, setProgress] = useState<ProgressStatus>({ stage: 'separation', percent: 0 });
   const [dependencies, setDependencies] = useState<DependencyStatus | null>(null);
   const [recentFiles, setRecentFiles] = useState<string[]>([]);
@@ -155,6 +164,8 @@ const AppContent: React.FC = () => {
     
     setIsProcessing(true);
     setError(null);
+    setSummaryResult(null); // 要約結果をリセット
+    setWeeklyReportResult(null); // Weekly Report結果をリセット
     
     try {
       let filePath = audioFile.path;
@@ -189,6 +200,54 @@ const AppContent: React.FC = () => {
       showNotification('error', '文字起こし処理中にエラーが発生しました。');
     } finally {
       setIsProcessing(false);
+    }
+  };
+  
+  // 要約機能のハンドラ
+  const handleSummarize = async (options: SummarizationOptions = {}) => {
+    if (!editedTranscription) return;
+    
+    setIsSummarizing(true);
+    setError(null);
+    
+    try {
+      const result = await window.api.summarizeTranscription(
+        editedTranscription,
+        options
+      );
+      
+      setSummaryResult(result);
+      showNotification('success', '文字起こしの要約が完了しました。');
+    } catch (err) {
+      const appError = categorizeError(err);
+      setError(appError);
+      showNotification('error', '要約処理中にエラーが発生しました。');
+    } finally {
+      setIsSummarizing(false);
+    }
+  };
+
+  // Weekly Report生成のハンドラ
+  const handleCreateWeeklyReport = async (options: WeeklyReportOptions) => {
+    if (!editedTranscription) return;
+    
+    setIsGeneratingWeeklyReport(true);
+    setError(null);
+    
+    try {
+      const result = await window.api.createWeeklyReport(
+        editedTranscription,
+        options
+      );
+      
+      setWeeklyReportResult(result);
+      showNotification('success', 'Weekly Reportの生成が完了しました。');
+    } catch (err) {
+      const appError = categorizeError(err);
+      setError(appError);
+      showNotification('error', 'Weekly Report生成中にエラーが発生しました。');
+    } finally {
+      setIsGeneratingWeeklyReport(false);
     }
   };
 
@@ -461,6 +520,8 @@ const AppContent: React.FC = () => {
               <p className="text-sm text-gray-400">自然な段落分けと読みやすさを向上（日本語のみ）</p>
             </label>
           </div>
+          
+          {/* 要約機能のチェックボックスは削除 */}
         </div>
       </div>
       
@@ -500,12 +561,55 @@ const AppContent: React.FC = () => {
           <h2 className="text-xl font-semibold mb-4">3. 文字起こし結果</h2>
           
           <div className="mb-4">
-            <p><strong>使用モデル:</strong> {transcriptionResult.modelUsed}</p>
-            <p><strong>処理時間:</strong> {transcriptionResult.processingTime.toFixed(2)} 秒</p>
-            <p><strong>音声分離:</strong> {transcriptionResult.audioSeparationUsed ? '有効' : '無効'}</p>
-            {transcriptionResult.awsJobId && (
-              <p><strong>AWS Job ID:</strong> {transcriptionResult.awsJobId}</p>
-            )}
+            <div className="flex flex-wrap gap-4">
+              <div className="flex-1">
+                <p><strong>使用モデル:</strong> {transcriptionResult.modelUsed}</p>
+                <p><strong>処理時間:</strong> {transcriptionResult.processingTime.toFixed(2)} 秒</p>
+                <p><strong>音声分離:</strong> {transcriptionResult.audioSeparationUsed ? '有効' : '無効'}</p>
+                {transcriptionResult.awsJobId && (
+                  <p><strong>AWS Job ID:</strong> {transcriptionResult.awsJobId}</p>
+                )}
+              </div>
+              
+              <div className="flex-1 border-l border-gray-700 pl-4">
+                <h4 className="font-medium mb-2">顧客情報 (Weekly Report用)</h4>
+                <div className="grid grid-cols-1 gap-2">
+                  <div>
+                    <label htmlFor="customer-name" className="block text-sm font-medium text-gray-400 mb-1">顧客名:</label>
+                    <input 
+                      id="customer-name" 
+                      type="text" 
+                      className="block w-full rounded-md border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm py-1 bg-gray-800 text-gray-100"
+                      placeholder="例: AWS Japan"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="opportunity-name" className="block text-sm font-medium text-gray-400 mb-1">案件名:</label>
+                    <input 
+                      id="opportunity-name" 
+                      type="text" 
+                      className="block w-full rounded-md border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm py-1 bg-gray-800 text-gray-100"
+                      placeholder="例: Bedrock POC"
+                      value={opportunityName}
+                      onChange={(e) => setOpportunityName(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="opportunity-size" className="block text-sm font-medium text-gray-400 mb-1">規模 (ARR/MRR):</label>
+                    <input 
+                      id="opportunity-size" 
+                      type="text" 
+                      className="block w-full rounded-md border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm py-1 bg-gray-800 text-gray-100"
+                      placeholder="例: ARR $50k"
+                      value={opportunitySize}
+                      onChange={(e) => setOpportunitySize(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
           
           <TranscriptionEditor 
@@ -514,6 +618,29 @@ const AppContent: React.FC = () => {
             onChange={(text) => setEditedTranscription(text)}
             onReset={() => setEditedTranscription(transcriptionResult.text)}
           />
+          
+          {/* 要約・Weekly Reportセクション */}
+          <div className="mt-4 mb-4 border-t border-gray-700 pt-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium">テキスト要約 / Weekly Report</h3>
+              <div>
+                <span className="text-sm text-gray-400">Amazon Bedrockで文字起こし内容を処理</span>
+              </div>
+            </div>
+            <SummaryDisplay
+              original={editedTranscription}
+              summary={summaryResult?.summary || null}
+              summarizationResult={summaryResult}
+              weeklyReportResult={weeklyReportResult}
+              processingTime={summaryResult?.processingTime}
+              onRequestSummary={handleSummarize}
+              onRequestWeeklyReport={handleCreateWeeklyReport}
+              isProcessing={isSummarizing || isGeneratingWeeklyReport}
+              customerName={customerName}
+              opportunityName={opportunityName}
+              opportunitySize={opportunitySize}
+            />
+          </div>
           
           <ExportOptions 
             onExport={handleExport}

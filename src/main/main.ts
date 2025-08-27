@@ -8,7 +8,7 @@ import { AWSAudioProcessingManager } from './aws-audio-processing-manager';
 import { StrandsAgentManager } from './strands-agent-manager';
 import { ExportService } from './export-service';
 import { Logger } from './logger';
-import { ExportFormat, SummarizationLength, WhisperModel } from '../common/types';
+import { ExportFormat, SummarizationLength, WeeklyReportOptions, WhisperModel } from '../common/types';
 import { AppError, ErrorCategory, categorizeError } from '../common/error-utils';
 
 // Keep a global reference of the window object to avoid it being garbage collected
@@ -415,6 +415,45 @@ function setupIpcHandlers() {
     } catch (error) {
       const appError = categorizeError(error);
       logger.error(appError, { textLength: text?.length });
+      throw appError;
+    }
+  });
+
+  // Weekly Report生成エンドポイント
+  ipcMain.handle('create-weekly-report', async (_event, text: string, options: WeeklyReportOptions) => {
+    try {
+      logger.info(`Starting Weekly Report generation`, { textLength: text.length, customerName: options.customerName });
+      
+      // StrandsAgentManagerを使用してWeekly Report生成
+      if (!strandsAgentManager && mainWindow) {
+        logger.info('Initializing StrandsAgentManager for Weekly Report');
+        strandsAgentManager = new StrandsAgentManager(mainWindow);
+      }
+
+      if (strandsAgentManager) {
+        try {
+          // StrandsAgentManagerを使用してWeekly Report生成
+          logger.info('Using StrandsAgentManager for Weekly Report generation');
+          const result = await strandsAgentManager.createWeeklyReport(text, options);
+
+          logger.info(`Successfully generated Weekly Report with StrandsAgentManager`, { 
+            textLength: text.length,
+            reportLength: result.report?.length || 0,
+            processingTime: result.processingTime,
+            modelUsed: result.modelUsed
+          });
+
+          return result;
+        } catch (agentError) {
+          logger.error('StrandsAgentManager Weekly Report generation failed', agentError);
+          throw agentError; // Weekly Reportはフォールバック機能がないのでエラーをスロー
+        }
+      } else {
+        throw new Error('StrandsAgentManagerが初期化されていません。Weekly Reportを生成できません。');
+      }
+    } catch (error) {
+      const appError = categorizeError(error);
+      logger.error(appError, { textLength: text?.length, customerName: options.customerName });
       throw appError;
     }
   });
