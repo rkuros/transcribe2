@@ -383,7 +383,7 @@ ${text}
 重要指示: 以下のテンプレートとサンプルに厳密に従って週次報告書を作成してください:
 
 テンプレート:
-[Customer Name - Opportunity Name, Opp Size (ARR/MRR)] Fact(何が起こったか)とimpact(それによってどんなインパクトが有るのか)を記載してください [Action Taken] SA/アカウントチームがすでに取ったアクションやエスカレーション内容を記載してください [Observation] この事象に関する考察や学びについて記載してください [Next Step] SA/アカウントチームが次に取るアクションを記載してください。（Owner: alias@、〜Due date） [Ask] リーダーシップに対してのAskがあれば、できる限り具体的に記載してください。
+[Customer Name - Opportunity Name, Opp Size (ARR/MRR)] Fact(何が起こったか)とimpact(それによってどんなインパクトが有るのか)、この事象に関する考察や学びについて記載してください [Action Taken] SA/アカウントチームがすでに取ったアクションやエスカレーション内容を記載してください [Next Step] SA/アカウントチームが次に取るアクションを記載してください。（Owner: alias@、〜Due date） [Ask] リーダーシップに対してのAskがあれば、できる限り具体的に記載してください。
 
 重要なポイント:
 - 箇条書きではなく、文章形式（ナラティブ形式）で書いてください
