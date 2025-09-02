@@ -368,15 +368,10 @@ const AppContent: React.FC = () => {
               <p className="text-sm text-gray-500">対応フォーマット: MP3, WAV, M4A, FLAC, AAC</p>
             </div>
             
-            <div className="flex gap-4">
-              <RecentFiles 
-                files={recentFiles}
-                onSelectFile={handleSelectFile}
-              />
-              <HistoryButton 
-                onClick={() => setIsHistoryModalOpen(true)}
-              />
-            </div>
+            <RecentFiles 
+              files={recentFiles}
+              onSelectFile={handleSelectFile}
+            />
           </div>
         )}
         
@@ -544,13 +539,19 @@ const AppContent: React.FC = () => {
       
       {/* Processing button */}
       <div className="card">
-        <button 
-          className="btn-primary"
-          disabled={!audioFile || isProcessing}
-          onClick={handleTranscribe}
-        >
-          {isProcessing ? '処理中...' : '文字起こしを開始'}
-        </button>
+        <div className="flex gap-4 items-center">
+          <button 
+            className="btn-primary"
+            disabled={!audioFile || isProcessing}
+            onClick={handleTranscribe}
+          >
+            {isProcessing ? '処理中...' : '文字起こしを開始'}
+          </button>
+          
+          <HistoryButton 
+            onClick={() => setIsHistoryModalOpen(true)}
+          />
+        </div>
         
         {/* Progress indicator */}
         <ProgressIndicator 
