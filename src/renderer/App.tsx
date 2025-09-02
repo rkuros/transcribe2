@@ -3,7 +3,8 @@ import { WhisperModel, TranscriptionEngine, ProcessingOptions, TranscriptionResu
 import RecentFiles from './components/RecentFiles';
 import ProgressIndicator from './components/ProgressIndicator';
 import TranscriptionEditor from './components/TranscriptionEditor';
-import TranscriptionHistory from './components/TranscriptionHistory';
+import TranscriptionHistoryModal from './components/TranscriptionHistoryModal';
+import HistoryButton from './components/HistoryButton';
 import SummaryDisplay from './components/SummaryDisplay';
 import ExportOptions from './components/ExportOptions';
 import ErrorDisplay from './components/ErrorDisplay';
@@ -42,6 +43,7 @@ const AppContent: React.FC = () => {
   const [dependencies, setDependencies] = useState<DependencyStatus | null>(null);
   const [recentFiles, setRecentFiles] = useState<string[]>([]);
   const [error, setError] = useState<AppError | null>(null);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
 
   // Initialize settings and check dependencies on startup
   useEffect(() => {
@@ -371,8 +373,8 @@ const AppContent: React.FC = () => {
                 files={recentFiles}
                 onSelectFile={handleSelectFile}
               />
-              <TranscriptionHistory 
-                onLoadHistory={handleLoadHistory}
+              <HistoryButton 
+                onClick={() => setIsHistoryModalOpen(true)}
               />
             </div>
           </div>
@@ -628,6 +630,13 @@ const AppContent: React.FC = () => {
           />
         </div>
       )}
+
+      {/* History Modal */}
+      <TranscriptionHistoryModal
+        isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
+        onLoadHistory={handleLoadHistory}
+      />
     </div>
   );
 };

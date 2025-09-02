@@ -1,6 +1,6 @@
 import { S3Client, GetObjectCommand, ListObjectsV2Command, NoSuchKey } from '@aws-sdk/client-s3';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
-import { TranscriptionResult } from '../common/types';
+import { TranscriptionResult, WhisperModel } from '../common/types';
 
 interface HistoryItem {
   id: string;
@@ -99,18 +99,18 @@ export class HistoryManager {
       return {
         text: transcript,
         segments,
-        modelUsed: 'AWS Transcribe',
+        modelUsed: WhisperModel.AWS_TRANSCRIBE_AUTO,
         processingTime: 0,
-        language: transcriptResult.results?.language_code || 'ja-JP'
+        audioSeparationUsed: false
       };
     } catch (error) {
       console.error('Error converting AWS transcript:', error);
       return {
         text: `Error processing transcript for ${jobName}`,
         segments: [],
-        modelUsed: 'AWS Transcribe',
+        modelUsed: WhisperModel.AWS_TRANSCRIBE_AUTO,
         processingTime: 0,
-        language: 'ja-JP'
+        audioSeparationUsed: false
       };
     }
   }
