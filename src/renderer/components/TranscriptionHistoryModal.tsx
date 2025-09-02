@@ -71,15 +71,15 @@ const TranscriptionHistoryModal: React.FC<TranscriptionHistoryModalProps> = ({
         <div className="p-4 border-b border-gray-700">
           <div className="flex items-center gap-4">
             <label className="text-sm">表示件数:</label>
-            <select 
+            <input 
+              type="number" 
               value={limit} 
-              onChange={(e) => setLimit(Number(e.target.value))}
-              className="bg-gray-700 text-white px-3 py-1 rounded border border-gray-600"
-            >
-              <option value={10}>10件</option>
-              <option value={20}>20件</option>
-              <option value={50}>50件</option>
-            </select>
+              onChange={(e) => setLimit(Math.max(1, Number(e.target.value)))}
+              min="1"
+              max="100"
+              className="bg-gray-700 text-white px-3 py-1 rounded border border-gray-600 w-20"
+            />
+            <span className="text-sm text-gray-400">件</span>
           </div>
         </div>
 
@@ -111,9 +111,14 @@ const TranscriptionHistoryModal: React.FC<TranscriptionHistoryModalProps> = ({
                     <div className="text-sm text-gray-300 mb-2">
                       モデル: {item.result.modelUsed}
                     </div>
-                    <div className="text-gray-300 line-clamp-3">
-                      {item.result.text.substring(0, 200)}
-                      {item.result.text.length > 200 && '...'}
+                    <div className="text-gray-300" style={{ 
+                      display: '-webkit-box',
+                      WebkitLineClamp: 5,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden'
+                    }}>
+                      {item.result.text.substring(0, 500)}
+                      {item.result.text.length > 500 && '...'}
                     </div>
                   </div>
                 ))}
