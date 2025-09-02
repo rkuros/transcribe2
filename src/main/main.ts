@@ -122,7 +122,9 @@ function setupIpcHandlers() {
   settingsManager = new SettingsManager();
   pythonAudioProcessingManager = new PythonAudioProcessingManager(mainWindow);
   exportService = new ExportService(mainWindow);
-  historyManager = new HistoryManager('ap-northeast-1', settingsManager.getHistoryBucketName());
+  // Use the same bucket as AWS Transcribe for history
+  const transcribeBucketName = `transcribe-audio-temp-rkuros-ap-northeast-1`;
+  historyManager = new HistoryManager('ap-northeast-1', transcribeBucketName);
   logger = new Logger();
   
   // セットアップが完了したことをマーク
@@ -235,6 +237,17 @@ function setupIpcHandlers() {
       // Get the appropriate manager based on the selected model
       const manager = getAudioProcessingManager(options.model);
       const result = await manager.processAudio(filePath, options);
+      
+      // Save to history
+      try {
+        const fileName = require('path').basename(filePath);
+        await historyManager.saveTranscription(fileName, result);
+        logger.info(`Saved transcription to history`, { fileName });
+      } catch (historyError) {
+        logger.error('Failed to save transcription to history', { error: historyError });
+        // Don't throw - history saving failure shouldn't break transcription
+      }
+      
       logger.info(`Successfully transcribed audio file`, { 
         filePath, 
         model: result.modelUsed, 

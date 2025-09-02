@@ -195,15 +195,6 @@ const AppContent: React.FC = () => {
       setEditedTranscription(result.text);
       setProgress({ stage: 'complete', percent: 100 });
       
-      // Save to history
-      if (audioFile) {
-        try {
-          await window.api.saveTranscriptionToHistory(audioFile.name, result);
-        } catch (error) {
-          console.error('Failed to save to history:', error);
-        }
-      }
-      
       showNotification('success', '文字起こしが完了しました。テキストを編集できます。');
     } catch (err) {
       const appError = categorizeError(err);

@@ -100,7 +100,7 @@ export class SettingsManager {
   }
 
   public getHistoryBucketName(): string {
-    return this.store.get('historyBucketName', DEFAULT_SETTINGS.historyBucketName!);
+    return this.store.get('historyBucketName') || DEFAULT_SETTINGS.historyBucketName || 'transcribe-history-bucket';
   }
 
   public setHistoryBucketName(bucketName: string): void {
