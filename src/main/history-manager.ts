@@ -1,6 +1,5 @@
-import { app } from 'electron';
-import * as path from 'path';
-import * as fs from 'fs/promises';
+import { S3Client, GetObjectCommand, PutObjectCommand, NoSuchKey } from '@aws-sdk/client-s3';
+import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { TranscriptionResult } from '../common/types';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -12,11 +11,17 @@ interface HistoryItem {
 }
 
 export class HistoryManager {
-  private historyFilePath: string;
+  private s3Client: S3Client;
+  private bucketName: string;
+  private historyKey: string;
 
-  constructor() {
-    const userDataPath = app.getPath('userData');
-    this.historyFilePath = path.join(userDataPath, 'transcription-history.json');
+  constructor(region: string = 'ap-northeast-1', bucketName: string = 'transcribe-history-bucket') {
+    this.s3Client = new S3Client({
+      region,
+      credentials: fromNodeProviderChain()
+    });
+    this.bucketName = bucketName;
+    this.historyKey = 'transcription-history.json';
   }
 
   async saveTranscription(fileName: string, result: TranscriptionResult): Promise<void> {
@@ -36,9 +41,15 @@ export class HistoryManager {
         history.splice(50);
       }
       
-      await fs.writeFile(this.historyFilePath, JSON.stringify(history, null, 2));
+      await this.s3Client.send(new PutObjectCommand({
+        Bucket: this.bucketName,
+        Key: this.historyKey,
+        Body: JSON.stringify(history, null, 2),
+        ContentType: 'application/json'
+      }));
     } catch (error) {
-      console.error('Failed to save transcription history:', error);
+      console.error('Failed to save transcription history to S3:', error);
+      throw error;
     }
   }
 
@@ -48,11 +59,20 @@ export class HistoryManager {
 
   private async loadHistory(): Promise<HistoryItem[]> {
     try {
-      const data = await fs.readFile(this.historyFilePath, 'utf-8');
-      return JSON.parse(data);
+      const response = await this.s3Client.send(new GetObjectCommand({
+        Bucket: this.bucketName,
+        Key: this.historyKey
+      }));
+      
+      const data = await response.Body?.transformToString();
+      return data ? JSON.parse(data) : [];
     } catch (error) {
-      // File doesn't exist or is corrupted, return empty array
-      return [];
+      if (error instanceof NoSuchKey) {
+        // File doesn't exist, return empty array
+        return [];
+      }
+      console.error('Failed to load history from S3:', error);
+      throw error;
     }
   }
 }

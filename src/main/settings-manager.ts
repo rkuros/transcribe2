@@ -20,12 +20,14 @@ interface Settings {
   language?: string;
   lastExportFormat?: string;
   recentFiles?: string[];
+  historyBucketName?: string;
 }
 
 const DEFAULT_SETTINGS: Settings = {
   defaultModel: WhisperModel.FASTER_WHISPER_SMALL,
   enableAudioSeparation: true,
-  recentFiles: []
+  recentFiles: [],
+  historyBucketName: 'transcribe-history-bucket'
 };
 
 export class SettingsManager {
@@ -95,6 +97,14 @@ export class SettingsManager {
 
   public setLastExportFormat(format: ExportFormat): void {
     this.store.set('lastExportFormat', format);
+  }
+
+  public getHistoryBucketName(): string {
+    return this.store.get('historyBucketName', DEFAULT_SETTINGS.historyBucketName!);
+  }
+
+  public setHistoryBucketName(bucketName: string): void {
+    this.store.set('historyBucketName', bucketName);
   }
 
   public getAllSettings(): Settings {

@@ -122,7 +122,7 @@ function setupIpcHandlers() {
   settingsManager = new SettingsManager();
   pythonAudioProcessingManager = new PythonAudioProcessingManager(mainWindow);
   exportService = new ExportService(mainWindow);
-  historyManager = new HistoryManager();
+  historyManager = new HistoryManager('ap-northeast-1', settingsManager.getHistoryBucketName());
   logger = new Logger();
   
   // セットアップが完了したことをマーク
