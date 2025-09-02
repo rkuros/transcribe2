@@ -21,18 +21,20 @@ const TranscriptionHistoryModal: React.FC<TranscriptionHistoryModalProps> = ({
 }) => {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [limit, setLimit] = useState(10);
 
   useEffect(() => {
     if (isOpen) {
       loadHistory();
     }
-  }, [isOpen]);
+  }, [isOpen, limit]);
 
   const loadHistory = async () => {
     setLoading(true);
     try {
       const historyData = await window.api.getTranscriptionHistory();
-      setHistory(historyData);
+      // Limit the number of items displayed
+      setHistory(historyData.slice(0, limit));
     } catch (error) {
       console.error('Failed to load history:', error);
     } finally {
@@ -53,16 +55,32 @@ const TranscriptionHistoryModal: React.FC<TranscriptionHistoryModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-4/5 max-w-4xl h-4/5 max-h-screen flex flex-col">
+      <div className="bg-gray-800 text-white rounded-lg shadow-xl w-4/5 max-w-4xl h-4/5 max-h-screen flex flex-col">
         {/* Header */}
-        <div className="flex justify-between items-center p-6 border-b">
+        <div className="flex justify-between items-center p-6 border-b border-gray-700">
           <h2 className="text-2xl font-bold">文字起こし履歴</h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-2xl"
+            className="text-gray-400 hover:text-white text-2xl"
           >
             ×
           </button>
+        </div>
+
+        {/* Controls */}
+        <div className="p-4 border-b border-gray-700">
+          <div className="flex items-center gap-4">
+            <label className="text-sm">表示件数:</label>
+            <select 
+              value={limit} 
+              onChange={(e) => setLimit(Number(e.target.value))}
+              className="bg-gray-700 text-white px-3 py-1 rounded border border-gray-600"
+            >
+              <option value={10}>10件</option>
+              <option value={20}>20件</option>
+              <option value={50}>50件</option>
+            </select>
+          </div>
         </div>
 
         {/* Content */}
@@ -73,7 +91,7 @@ const TranscriptionHistoryModal: React.FC<TranscriptionHistoryModalProps> = ({
             </div>
           ) : history.length === 0 ? (
             <div className="flex items-center justify-center h-full">
-              <div className="text-gray-500">履歴がありません</div>
+              <div className="text-gray-400">履歴がありません</div>
             </div>
           ) : (
             <div className="h-full overflow-y-auto p-6">
@@ -81,19 +99,19 @@ const TranscriptionHistoryModal: React.FC<TranscriptionHistoryModalProps> = ({
                 {history.map((item) => (
                   <div
                     key={item.id}
-                    className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                    className="border border-gray-600 rounded-lg p-4 hover:bg-gray-700 cursor-pointer transition-colors"
                     onClick={() => handleLoadHistory(item)}
                   >
                     <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-semibold text-lg truncate">{item.fileName}</h3>
-                      <span className="text-sm text-gray-500 ml-4 whitespace-nowrap">
+                      <h3 className="font-semibold text-lg truncate text-white">{item.fileName}</h3>
+                      <span className="text-sm text-gray-400 ml-4 whitespace-nowrap">
                         {formatDate(item.timestamp)}
                       </span>
                     </div>
-                    <div className="text-sm text-gray-600 mb-2">
+                    <div className="text-sm text-gray-300 mb-2">
                       モデル: {item.result.modelUsed}
                     </div>
-                    <div className="text-gray-700 line-clamp-3">
+                    <div className="text-gray-300 line-clamp-3">
                       {item.result.text.substring(0, 200)}
                       {item.result.text.length > 200 && '...'}
                     </div>
@@ -105,14 +123,14 @@ const TranscriptionHistoryModal: React.FC<TranscriptionHistoryModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t bg-gray-50">
+        <div className="p-6 border-t border-gray-700 bg-gray-900">
           <div className="flex justify-between items-center">
-            <div className="text-sm text-gray-600">
-              {history.length > 0 && `${history.length}件の履歴`}
+            <div className="text-sm text-gray-400">
+              {history.length > 0 && `${history.length}件の履歴を表示中`}
             </div>
             <button
               onClick={onClose}
-              className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+              className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500"
             >
               閉じる
             </button>
