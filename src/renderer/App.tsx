@@ -3,6 +3,7 @@ import { WhisperModel, TranscriptionEngine, ProcessingOptions, TranscriptionResu
 import RecentFiles from './components/RecentFiles';
 import ProgressIndicator from './components/ProgressIndicator';
 import TranscriptionEditor from './components/TranscriptionEditor';
+import TranscriptionHistory from './components/TranscriptionHistory';
 import SummaryDisplay from './components/SummaryDisplay';
 import ExportOptions from './components/ExportOptions';
 import ErrorDisplay from './components/ErrorDisplay';
@@ -193,6 +194,16 @@ const AppContent: React.FC = () => {
       setTranscriptionResult(result);
       setEditedTranscription(result.text);
       setProgress({ stage: 'complete', percent: 100 });
+      
+      // Save to history
+      if (audioFile) {
+        try {
+          await window.api.saveTranscriptionToHistory(audioFile.name, result);
+        } catch (error) {
+          console.error('Failed to save to history:', error);
+        }
+      }
+      
       showNotification('success', '文字起こしが完了しました。テキストを編集できます。');
     } catch (err) {
       const appError = categorizeError(err);
@@ -249,6 +260,14 @@ const AppContent: React.FC = () => {
     } finally {
       setIsGeneratingWeeklyReport(false);
     }
+  };
+
+  // Handle loading from history
+  const handleLoadHistory = (result: TranscriptionResult) => {
+    setTranscriptionResult(result);
+    setEditedTranscription(result.text);
+    setAudioFile(null); // Clear current audio file since we're loading from history
+    showNotification('success', '履歴から文字起こし結果を読み込みました。');
   };
 
   // Handle exporting transcription
@@ -356,10 +375,15 @@ const AppContent: React.FC = () => {
               <p className="text-sm text-gray-500">対応フォーマット: MP3, WAV, M4A, FLAC, AAC</p>
             </div>
             
-            <RecentFiles 
-              files={recentFiles}
-              onSelectFile={handleSelectFile}
-            />
+            <div className="flex gap-4">
+              <RecentFiles 
+                files={recentFiles}
+                onSelectFile={handleSelectFile}
+              />
+              <TranscriptionHistory 
+                onLoadHistory={handleLoadHistory}
+              />
+            </div>
           </div>
         )}
         

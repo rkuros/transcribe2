@@ -7,6 +7,7 @@ import { PythonAudioProcessingManager } from './audio-processing-manager';
 import { AWSAudioProcessingManager } from './aws-audio-processing-manager';
 import { StrandsAgentManager } from './strands-agent-manager';
 import { ExportService } from './export-service';
+import { HistoryManager } from './history-manager';
 import { Logger } from './logger';
 import { ExportFormat, SummarizationLength, WeeklyReportOptions, WhisperModel } from '../common/types';
 import { AppError, ErrorCategory, categorizeError } from '../common/error-utils';
@@ -92,6 +93,7 @@ let pythonAudioProcessingManager: PythonAudioProcessingManager;
 let awsAudioProcessingManager: AWSAudioProcessingManager | null = null;
 let strandsAgentManager: StrandsAgentManager | null = null;
 let exportService: ExportService;
+let historyManager: HistoryManager;
 let logger: Logger;
 let isSetupComplete = false;
 
@@ -120,6 +122,7 @@ function setupIpcHandlers() {
   settingsManager = new SettingsManager();
   pythonAudioProcessingManager = new PythonAudioProcessingManager(mainWindow);
   exportService = new ExportService(mainWindow);
+  historyManager = new HistoryManager();
   logger = new Logger();
   
   // セットアップが完了したことをマーク
@@ -554,6 +557,27 @@ function setupIpcHandlers() {
     } catch (error) {
       const appError = categorizeError(error);
       logger.error(appError);
+      throw appError;
+    }
+  });
+  
+  // History management IPC endpoints
+  ipcMain.handle('get-transcription-history', async () => {
+    try {
+      return await historyManager.getHistory();
+    } catch (error) {
+      const appError = categorizeError(error);
+      logger.error('Failed to get transcription history', { error: appError });
+      throw appError;
+    }
+  });
+
+  ipcMain.handle('save-transcription-to-history', async (_event, fileName: string, result: any) => {
+    try {
+      await historyManager.saveTranscription(fileName, result);
+    } catch (error) {
+      const appError = categorizeError(error);
+      logger.error('Failed to save transcription to history', { error: appError });
       throw appError;
     }
   });

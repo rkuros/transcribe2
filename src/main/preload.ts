@@ -22,6 +22,10 @@ contextBridge.exposeInMainWorld('api', {
   setLastExportFormat: (format: string) => ipcRenderer.invoke('set-last-export-format', format),
   resetSettings: () => ipcRenderer.invoke('reset-settings'),
   
+  // History management methods
+  getTranscriptionHistory: () => ipcRenderer.invoke('get-transcription-history'),
+  saveTranscriptionToHistory: (fileName: string, result: any) => ipcRenderer.invoke('save-transcription-to-history', fileName, result),
+  
   // Python process-related methods
   getAvailableModels: () => ipcRenderer.invoke('get-available-models'),
   checkDependencies: () => ipcRenderer.invoke('check-dependencies'),
