@@ -113,12 +113,12 @@ const TranscriptionHistoryModal: React.FC<TranscriptionHistoryModalProps> = ({
                     </div>
                     <div className="text-gray-300" style={{ 
                       display: '-webkit-box',
-                      WebkitLineClamp: 5,
+                      WebkitLineClamp: 10,
                       WebkitBoxOrient: 'vertical',
                       overflow: 'hidden'
                     }}>
-                      {item.result.text.substring(0, 500)}
-                      {item.result.text.length > 500 && '...'}
+                      {item.result.text.substring(0, 1000)}
+                      {item.result.text.length > 1000 && '...'}
                     </div>
                   </div>
                 ))}
